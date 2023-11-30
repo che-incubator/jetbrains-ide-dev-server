@@ -11,8 +11,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.CHE_INCUBATOR_BOT_TOKEN }}
+        # with:
+        #   token: ${{ secrets.CHE_INCUBATOR_BOT_TOKEN }}
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
       - name: Set up Docker Buildx
