@@ -7,12 +7,9 @@
 # SPDX-License-Identifier: EPL-2.0
 #
 
-name: image-publish
+name: pr-check
 
-on:
-  push:
-    branches:
-      - 'main'
+on: [pull_request]
 
 jobs:
   build:
@@ -20,18 +17,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v3
-        # with:
-        #   token: ${{ secrets.CHE_INCUBATOR_BOT_TOKEN }}
-      - name: Login to quay.io
-        uses: docker/login-action@v2
-        with:
-          registry: quay.io
-          username: ${{ secrets.QUAY_USERNAME }}
-          password: ${{ secrets.QUAY_PASSWORD }}
-      - name: Build and push image
+      - name: Build image
         uses: docker/build-push-action@v4
         with:
           context: .
           file: build/dockerfiles/Dockerfile
-          push: true
           tags: quay.io/che-incubator/che-idea-dev-server:next
