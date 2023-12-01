@@ -50,7 +50,7 @@ app.get('/', async function (req, res) {
 });
 
 // server setup
-const appPort = '3100';
+const appPort = '3400';
 app.listen(appPort, function (err) {
   if (err)
     throw err;
