@@ -45,7 +45,7 @@ app.get('/', async function (req, res) {
   const dwName = process.env.DEVWORKSPACE_NAME;
   const clusterConsoleURL = process.env.CLUSTER_CONSOLE_URL;
   const podName = process.env.HOSTNAME;
-
+  // render the page from EJS template
   res.render('status', { dwName, clusterConsoleURL, podName, invitationLink });
 });
 
