@@ -9,17 +9,23 @@ The image built from the `main` branch is published to [quay.io/che-incubator/ch
 `podman build . -f build/dockerfiles/Dockerfile -t che-idea-dev-server:next`
 
 ## Troubleshooting
+Integration of Jet Brains Gateway with Eclipse Che this editor provides is in the early stage. So, you may face some problems that require a manual resolution.
 
-**Problem**
-
-Executing `oc port-forward ...` command reports an error:
+**Problem 1:** executing `oc port-forward ...` command reports an error:
 ```
 error: error upgrading connection: pods "..." is forbidden: User "..." cannot create resource "pods/portforward" in API group "" in the namespace "..."
 ```
+**Solution:** ask the admin to allow port forwarding for your user.
 
-**Solution**
+**Problem 2:** when typing in the editor, a popup reports an error:
+```
+No internet connection
+```
+**Solution:** check your terminal if the port forwarding is enabled.
 
-Ask the admin to allow port forwarding for your user.
+**Problem 3:** executing `oc port-forward ...` command reports an error:
+`Error from server (NotFound): pods "..." not found`
+**Solution:** check the Dashboard that your workspace is running.
 
 ## License
 
