@@ -8,6 +8,19 @@ The image built from the `main` branch is published to [quay.io/che-incubator/ch
 
 `podman build . -f build/dockerfiles/Dockerfile -t che-idea-dev-server:next`
 
+## Troubleshooting
+
+**Problem**
+
+Executing `oc port-forward ...` command reports an error:
+```
+error: error upgrading connection: pods "..." is forbidden: User "..." cannot create resource "pods/portforward" in API group "" in the namespace "..."
+```
+
+**Solution**
+
+Ask the admin to allow port forwarding for your user.
+
 ## License
 
 - [Eclipse Public License 2.0](LICENSE)
