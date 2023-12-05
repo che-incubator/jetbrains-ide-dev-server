@@ -25,6 +25,7 @@ No internet connection
 
 **Problem 3:** executing `oc port-forward ...` command reports an error:
 `Error from server (NotFound): pods "..." not found`
+
 **Solution:** check the Dashboard that your workspace is running.
 
 ## License
