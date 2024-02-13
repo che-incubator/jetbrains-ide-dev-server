@@ -18,6 +18,16 @@
     <title>Eclipse Che</title>
   </head>
   <body>
+    <script>
+      (function () {    
+          window.onload = function () {
+            const gatewayLink = "jetbrains-gateway://connect#type=devspaces&dwID=<%= dwID %>&dwName=<%= dwName %>&link=<%= invitationLink %>"
+            console.log("Opening Gateway app: " + gatewayLink);
+            window.open(gatewayLink, "_self");
+          };
+      }());
+    </script>
+
     <h1>"<%= dwName %>" workspace with IntelliJ IDEA dev server is running</h1>
 
     <h3>How to connect to your Workspace?</h3>
@@ -30,7 +40,7 @@
 
     <h4>Connect your local JetBrains thin client to the remote backend</h4>
     <i>Install <a href="https://www.jetbrains.com/remote-development/gateway/" target="_blank">JetBrains Gateway</a> if not installed.</i>
-    <p>1. <a href="jetbrains-gateway://connect">Open JetBrains Gateway</a> and choose "Connect with a Link" option.</p>
+    <p>1. <a href="jetbrains-gateway://connect#type=devspaces&dwID=<%= dwID %>&dwName=<%= dwName %>&link=<%= invitationLink %>">Open JetBrains Gateway</a> and choose "Connect with a Link" option.</p>
     <p>2. Pass this IDEA dev server link to your Gateway app: <%= invitationLink %></p>
   </body>
 </html>

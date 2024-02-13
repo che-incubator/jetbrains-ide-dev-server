@@ -41,12 +41,13 @@ var joinLink = new Promise((resolve) => {
 const app = express();
 app.set('view engine', 'ejs');
 app.get('/', async function (req, res) {
-  const invitationLink = await joinLink;
+  const invitationLink = (await joinLink).replaceAll('&', '_');
+  const dwID = process.env.DEVWORKSPACE_ID;
   const dwName = process.env.DEVWORKSPACE_NAME;
   const clusterConsoleURL = process.env.CLUSTER_CONSOLE_URL;
   const podName = process.env.HOSTNAME;
   // render the page from EJS template
-  res.render('status', { dwName, clusterConsoleURL, podName, invitationLink });
+  res.render('status', { dwID, dwName, clusterConsoleURL, podName, invitationLink });
 });
 
 // server setup
