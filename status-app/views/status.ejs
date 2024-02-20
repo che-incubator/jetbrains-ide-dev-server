@@ -21,7 +21,7 @@
     <script>
       (function () {    
           window.onload = function () {
-            const gatewayLink = "jetbrains-gateway://connect#type=devspaces&dwID=<%= dwID %>&dwName=<%= dwName %>&link=<%= invitationLink %>"
+            const gatewayLink = "jetbrains-gateway://connect#type=devspaces&dwNamespace=<%= dwNamespace %>&dwName=<%= dwName %>&link=<%= invitationLink %>"
             console.log("Opening Gateway app: " + gatewayLink);
             window.open(gatewayLink, "_self");
           };
