@@ -30,17 +30,13 @@
 
     <h1>"<%= dwName %>" workspace with IntelliJ IDEA dev server is running</h1>
 
-    <h3>How to connect to your Workspace?</h3>
+    <h3>How to connect to this DevWorkspace?</h3>
 
-    <h4>Start a port forwarding session</h4>
-    <p>1. Go to the <a href="<%= clusterConsoleURL %>" target="_blank">Open OpenShift Console</a> to copy the login command from the top right menu.</p>
-    <p>2. Log in to your cluster with the oc client using the command copied at the previous step.</p>
-    <i>Make sure the correct project currently in use.</i>
-    <p>3. In the same local terminal call: oc port-forward pod/<%= podName %> 5990</p>
+    <h4>Make sure your local oc client is logged in to your OpenShift server</h4>
+    <p>Go to the <a href="<%= clusterConsoleURL %>" target="_blank">Open OpenShift Console</a> to get the login command from the top right menu.</p>
 
-    <h4>Connect your local JetBrains thin client to the remote backend</h4>
+    <h4>Connect to the remote backend with your local JetBrains Client</h4>
     <i>Install <a href="https://www.jetbrains.com/remote-development/gateway/" target="_blank">JetBrains Gateway</a> if not installed.</i>
-    <p>1. <a href="jetbrains-gateway://connect#type=devspaces&dwID=<%= dwID %>&dwName=<%= dwName %>&link=<%= invitationLink %>">Open JetBrains Gateway</a> and choose "Connect with a Link" option.</p>
-    <p>2. Pass this IDEA dev server link to your Gateway app: <%= invitationLink %></p>
+    <p>Use the browser confirmation dialog or this link: <a href="jetbrains-gateway://connect#type=devspaces&dwNamespace=<%= dwNamespace %>&dwName=<%= dwName %>&link=<%= invitationLink %>">Open JetBrains Gateway</a></p>
   </body>
 </html>
