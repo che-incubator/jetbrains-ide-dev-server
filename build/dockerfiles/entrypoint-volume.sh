@@ -26,7 +26,7 @@ ls -la /idea-server/
 # Start the app that checks the IDEA server status.
 # This should be the editor's 'main' endpoint.
 cd /idea-server/status-app
-nohup yarn start &
+nohup npm start &
 
 # Skip all interactive shell prompts.
 export REMOTE_DEV_NON_INTERACTIVE=1
