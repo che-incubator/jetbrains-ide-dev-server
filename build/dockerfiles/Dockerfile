@@ -11,7 +11,7 @@
 FROM registry.access.redhat.com/ubi8/nodejs-18:1-60
 
 WORKDIR /idea-dist/
-RUN curl -sL https://download-cdn.jetbrains.com/idea/ideaIU-2023.2.5.tar.gz | tar xzf - --strip-components=1
+RUN curl -sL https://download-cdn.jetbrains.com/idea/ideaIU-2024.1.1.tar.gz | tar xzf - --strip-components=1
 
 USER 0
 
