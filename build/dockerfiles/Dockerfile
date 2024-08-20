@@ -8,11 +8,11 @@
 # Contributors:
 #   Red Hat, Inc. - initial API and implementation
 
-# https://registry.access.redhat.com/ubi8/nodejs-18
-FROM registry.access.redhat.com/ubi8/nodejs-18:1-60
+# https://registry.access.redhat.com/ubi8/nodejs-20
+FROM registry.access.redhat.com/ubi8/nodejs-20:1-50.1720405266
 
 WORKDIR /idea-dist/
-RUN curl -sL https://download-cdn.jetbrains.com/idea/ideaIU-2024.1.1.tar.gz | tar xzf - --strip-components=1
+RUN curl -sL https://download-cdn.jetbrains.com/idea/ideaIU-2024.2.tar.gz | tar xzf - --strip-components=1
 
 USER 0
 
