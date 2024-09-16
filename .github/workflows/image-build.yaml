@@ -28,10 +28,12 @@ jobs:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
-      - name: Build and push image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: build/dockerfiles/Dockerfile
-          push: true
+      - name: list
+        run: docker image ls -aq
+      # - name: Build and push image
+      #   uses: docker/build-push-action@v4
+      #   with:
+      #     context: .
+      #     file: build/dockerfiles/Dockerfile
+      #     push: true
           tags: quay.io/che-incubator/che-idea-dev-server:next,quay.io/che-incubator/che-idea-dev-server:latest
