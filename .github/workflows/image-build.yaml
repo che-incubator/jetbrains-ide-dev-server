@@ -29,7 +29,9 @@ jobs:
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
       - name: list
-        run: docker image ls -aq
+        run: |
+          df -h
+          docker image ls -aq
       # - name: Build and push image
       #   uses: docker/build-push-action@v4
       #   with:
