@@ -36,4 +36,4 @@ jobs:
       #     context: .
       #     file: build/dockerfiles/Dockerfile
       #     push: true
-          tags: quay.io/che-incubator/che-idea-dev-server:next,quay.io/che-incubator/che-idea-dev-server:latest
+      #    tags: quay.io/che-incubator/che-idea-dev-server:next,quay.io/che-incubator/che-idea-dev-server:latest
