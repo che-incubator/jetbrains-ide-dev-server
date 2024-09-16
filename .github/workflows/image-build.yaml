@@ -33,10 +33,10 @@ jobs:
           df -h
           docker rmi $(docker image ls -aq)
           df -h
-      # - name: Build and push image
-      #   uses: docker/build-push-action@v4
-      #   with:
-      #     context: .
-      #     file: build/dockerfiles/Dockerfile
-      #     push: true
-      #    tags: quay.io/che-incubator/che-idea-dev-server:next,quay.io/che-incubator/che-idea-dev-server:latest
+      - name: Build and push image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: build/dockerfiles/Dockerfile
+          push: true
+          tags: quay.io/che-incubator/che-idea-dev-server:next,quay.io/che-incubator/che-idea-dev-server:latest
