@@ -31,7 +31,8 @@ jobs:
       - name: list
         run: |
           df -h
-          docker image ls -aq
+          docker rmi $(docker image ls -aq)
+          df -h
       # - name: Build and push image
       #   uses: docker/build-push-action@v4
       #   with:
