@@ -1,6 +1,6 @@
 #!/bin/sh
 #
-# Copyright (c) 2023 Red Hat, Inc.
+# Copyright (c) 2023-2024 Red Hat, Inc.
 # This program and the accompanying materials are made
 # available under the terms of the Eclipse Public License 2.0
 # which is available at https://www.eclipse.org/legal/epl-2.0/
@@ -20,16 +20,18 @@ if ! whoami &> /dev/null; then
   fi
 fi
 
+ide_server_path="/idea-server"
+
 echo "Volume content:"
-ls -la /idea-server/
+ls -la "$ide_server_path"
 
 # Start the app that checks the IDEA server status.
 # This should be the editor's 'main' endpoint.
-cd /idea-server/status-app
+cd "$ide_server_path"/status-app
 nohup npm start &
 
 # Skip all interactive shell prompts.
 export REMOTE_DEV_NON_INTERACTIVE=1
 
-cd /idea-server/bin
+cd "$ide_server_path"/bin
 ./remote-dev-server.sh run ${PROJECT_SOURCE}

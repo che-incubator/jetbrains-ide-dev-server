@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2023 Red Hat, Inc.
+ * Copyright (c) 2023-2024 Red Hat, Inc.
  * This program and the accompanying materials are made
  * available under the terms of the Eclipse Public License 2.0
  * which is available at https://www.eclipse.org/legal/epl-2.0/
@@ -13,11 +13,12 @@
 const chokidar = require('chokidar');
 const fs = require("fs");
 const express = require('express');
+const ideInfo = require('../product-info.json');
 
-// path to the IDEA server's output
-const logsFile = '/idea-server/std.out';
+// path to the IDE server's logs
+const logsFile = '../std.out';
 
-// watch for the 'Join-link' in the IDEA server's output
+// watch for the 'joinLink' in the IDE server's output
 var joinLink = new Promise((resolve) => {
   const watcher = chokidar.watch(logsFile);
   watcher.on('change', (event, path) => {
@@ -41,13 +42,14 @@ var joinLink = new Promise((resolve) => {
 const app = express();
 app.set('view engine', 'ejs');
 app.get('/', async function (req, res) {
+  const ideName = ideInfo.productVendor + ' ' + ideInfo.name + ' ' + ideInfo.version;
   const invitationLink = (await joinLink).replaceAll('&', '_');
   const dwNamespace = process.env.DEVWORKSPACE_NAMESPACE;
   const dwName = process.env.DEVWORKSPACE_NAME;
   const clusterConsoleURL = process.env.CLUSTER_CONSOLE_URL;
   const podName = process.env.HOSTNAME;
   // render the page from EJS template
-  res.render('status', { dwNamespace, dwName, clusterConsoleURL, podName, invitationLink });
+  res.render('status', { ideName, dwNamespace, dwName, clusterConsoleURL, podName, invitationLink });
 });
 
 // server setup
