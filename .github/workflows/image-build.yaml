@@ -28,11 +28,12 @@ jobs:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
-      - name: list
+      - name: Clean-up disk space
         run: |
-          df -h
+          sudo swapoff -a
+          sudo rm -f /swapfile
+          sudo apt clean
           docker rmi $(docker image ls -aq)
-          df -h
       - name: Build and push image
         uses: docker/build-push-action@v4
         with:
