@@ -31,8 +31,8 @@ RUN curl -sL https://download-cdn.jetbrains.com/cpp/CLion-2024.2.tar.gz | tar xz
 WORKDIR /phpstorm-dist/
 RUN curl -sL https://download-cdn.jetbrains.com/webide/PhpStorm-2024.2.tar.gz | tar xzf - --strip-components=1
 
-WORKDIR /rubymine-dist/
-RUN curl -sL https://download-cdn.jetbrains.com/ruby/RubyMine-2024.2.tar.gz | tar xzf - --strip-components=1
+# WORKDIR /rubymine-dist/
+# RUN curl -sL https://download-cdn.jetbrains.com/ruby/RubyMine-2024.2.tar.gz | tar xzf - --strip-components=1
 
 WORKDIR /rider-dist/
 RUN curl -sL https://download-cdn.jetbrains.com/rider/JetBrains.Rider-2024.2.tar.gz | tar xzf - --strip-components=1
