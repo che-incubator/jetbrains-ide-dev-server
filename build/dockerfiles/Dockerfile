@@ -11,31 +11,9 @@
 # https://registry.access.redhat.com/ubi8/nodejs-20
 FROM registry.access.redhat.com/ubi8/nodejs-20:1-50.1720405266
 
-# Dockerfile for building a container that brings the Jet Brains IDEs with the remote developemnt support.
-# On a workspace start, the requested IDE is copied to the shared volume which is mounted to a folder in a dev container.
-WORKDIR /idea-dist/
-RUN curl -sL https://download-cdn.jetbrains.com/idea/ideaIU-2024.2.tar.gz | tar xzf - --strip-components=1
-
-WORKDIR /pycharm-dist/
-RUN curl -sL https://download-cdn.jetbrains.com/python/pycharm-professional-2024.2.tar.gz | tar xzf - --strip-components=1
-
-WORKDIR /goland-dist/
-RUN curl -sL https://download-cdn.jetbrains.com/go/goland-2024.2.tar.gz | tar xzf - --strip-components=1
-
-WORKDIR /webstorm-dist/
-RUN curl -sL https://download-cdn.jetbrains.com/webstorm/WebStorm-2024.2.tar.gz | tar xzf - --strip-components=1
-
-WORKDIR /clion-dist/
-RUN curl -sL https://download-cdn.jetbrains.com/cpp/CLion-2024.2.tar.gz | tar xzf - --strip-components=1
-
-WORKDIR /phpstorm-dist/
-RUN curl -sL https://download-cdn.jetbrains.com/webide/PhpStorm-2024.2.tar.gz | tar xzf - --strip-components=1
-
-# WORKDIR /rubymine-dist/
-# RUN curl -sL https://download-cdn.jetbrains.com/ruby/RubyMine-2024.2.tar.gz | tar xzf - --strip-components=1
-
-WORKDIR /rider-dist/
-RUN curl -sL https://download-cdn.jetbrains.com/rider/JetBrains.Rider-2024.2.tar.gz | tar xzf - --strip-components=1
+# Dockerfile for building a container that brings everything needed to:
+# - install Jet Brains IDE to a Dev Workspace
+# - run IDE as a remote development server
 
 USER 0
 

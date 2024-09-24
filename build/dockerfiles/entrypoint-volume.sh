@@ -11,6 +11,9 @@
 #   Red Hat, Inc. - initial API and implementation
 #
 
+# Being called as a post-start command, the script runs the IDE
+# from the shared volume which should be mounted to a folder in a dev container.
+
 # Register the current (arbitrary) user.
 if ! whoami &> /dev/null; then
   if [ -w /etc/passwd ]; then
@@ -20,15 +23,22 @@ if ! whoami &> /dev/null; then
   fi
 fi
 
+# mounted volume path
 ide_server_path="/idea-server"
 
 echo "Volume content:"
 ls -la "$ide_server_path"
 
-# Start the app that checks the IDEA server status.
-# This should be the editor's 'main' endpoint.
-cd "$ide_server_path"/status-app
-nohup npm start &
+# Start the app that checks the IDE server status.
+# This will be workspace's 'main' endpoint.
+if command -v npm &> /dev/null
+then
+  cd "$ide_server_path"/status-app
+  nohup npm start &
+else
+  echo "node/npm could not be found. Running IDE dev server with no status page."
+  echo "Open IDE through the Gateway application."
+fi
 
 # Skip all interactive shell prompts.
 export REMOTE_DEV_NON_INTERACTIVE=1

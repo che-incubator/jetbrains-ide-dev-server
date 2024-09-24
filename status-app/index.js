@@ -29,7 +29,7 @@ var joinLink = new Promise((resolve) => {
       if (data.includes('Join link: tcp://')) {
         const tcpLinkRegex = /(tcp:\/\/[^\s]+)/g;
         data.replace(tcpLinkRegex, function (link) {
-          console.log('TCP join link is accuired: ' + link);
+          console.log('TCP join link is acquired: ' + link);
           resolve(link);
           watcher.close().then(() => console.log('Watcher is closed!'));
         });
