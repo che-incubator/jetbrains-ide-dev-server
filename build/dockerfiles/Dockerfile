@@ -8,6 +8,8 @@
 # Contributors:
 #   Red Hat, Inc. - initial API and implementation
 
+# Base image tag updater line.
+# See https://github.com/eclipse-che/che-release/pull/90
 # https://registry.access.redhat.com/ubi8/nodejs-20
 FROM registry.access.redhat.com/ubi8/nodejs-20:1-50.1720405266
 
