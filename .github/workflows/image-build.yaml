@@ -11,13 +11,19 @@ name: image-publish
 
 on:
   push:
-    branches:
-      - 'main'
+    branches: 
+      - main
+    tags:
+      - '7.*.*'
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Set variables
+        run: |
+          BRANCH_NAME=${{ github.ref }}
+          echo "BRANCH_NAME=${BRANCH_NAME##*/}" >> $GITHUB_ENV
       - name: Checkout
         uses: actions/checkout@v3
         # with:
@@ -28,10 +34,11 @@ jobs:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
-      - name: Build and push image
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: build/dockerfiles/Dockerfile
-          push: true
-          tags: quay.io/che-incubator/che-idea-dev-server:next,quay.io/che-incubator/che-idea-dev-server:latest
+      - name: Docker Build and Push
+        run: |
+          SHORT_SHA1=$(git rev-parse --short=7 HEAD)
+          if [[ ${{ env.BRANCH_NAME }} == main ]]; then
+            docker build -f build/dockerfiles/Dockerfile --push -t quay.io/che-incubator/che-idea-dev-server:next .
+          elif [[ ${{ env.BRANCH_NAME }} =~ ^7\.[0-9]+\.[0-9]+$ ]]; then
+            docker build -f build/dockerfiles/Dockerfile --push -t quay.io/che-incubator/che-idea-dev-server:${{ env.BRANCH_NAME }} -t quay.io/che-incubator/che-idea-dev-server:latest . 
+          fi
