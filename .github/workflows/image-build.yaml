@@ -26,8 +26,8 @@ jobs:
           echo "BRANCH_NAME=${BRANCH_NAME##*/}" >> $GITHUB_ENV
       - name: Checkout
         uses: actions/checkout@v4
-        # with:
-        #   token: ${{ secrets.CHE_INCUBATOR_BOT_TOKEN }}
+        with:
+          token: ${{ secrets.CHE_INCUBATOR_BOT_TOKEN }}
       - name: Login to quay.io
         uses: docker/login-action@v3
         with:
