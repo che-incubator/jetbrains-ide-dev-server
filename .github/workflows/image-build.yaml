@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2023 Red Hat, Inc.
+# Copyright (c) 2023-2024 Red Hat, Inc.
 # This program and the accompanying materials are made
 # available under the terms of the Eclipse Public License 2.0
 # which is available at https://www.eclipse.org/legal/epl-2.0/
@@ -28,12 +28,6 @@ jobs:
           registry: quay.io
           username: ${{ secrets.QUAY_USERNAME }}
           password: ${{ secrets.QUAY_PASSWORD }}
-      - name: Clean-up disk space
-        run: |
-          sudo swapoff -a
-          sudo rm -f /swapfile
-          sudo apt clean
-          docker rmi $(docker image ls -aq)
       - name: Build and push image
         uses: docker/build-push-action@v4
         with:
