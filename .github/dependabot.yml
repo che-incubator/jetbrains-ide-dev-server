@@ -1,0 +1,16 @@
+# Please see the documentation for all configuration options:
+# https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
+
+version: 2
+updates:
+  # Maintain dependencies for npm dependencies
+  - package-ecosystem: "npm"
+    # Look for `package.json` and `lock` files
+    directory: "/status-app"
+    schedule:
+      interval: "daily"
+  # Maintain dependencies for GitHub Actions
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "daily"
