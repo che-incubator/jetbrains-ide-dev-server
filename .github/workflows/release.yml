@@ -26,7 +26,7 @@ jobs:
     steps:
       -
         name: "Checkout the source code"
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           token: ${{ secrets.CHE_INCUBATOR_BOT_TOKEN }}
       -
