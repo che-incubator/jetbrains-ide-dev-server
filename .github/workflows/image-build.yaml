@@ -38,7 +38,7 @@ jobs:
         run: |
           SHORT_SHA1=$(git rev-parse --short=7 HEAD)
           if [[ ${{ env.BRANCH_NAME }} == main ]]; then
-            docker build -f build/dockerfiles/Dockerfile --push -t quay.io/che-incubator/jetbrains-ide-dev-server:next .
+            docker build -f build/dockerfiles/Dockerfile --push -t quay.io/che-incubator/che-idea-dev-server:next .
           elif [[ ${{ env.BRANCH_NAME }} =~ ^7\.[0-9]+\.[0-9]+$ ]]; then
-            docker build -f build/dockerfiles/Dockerfile --push -t quay.io/che-incubator/jetbrains-ide-dev-server:${{ env.BRANCH_NAME }} -t quay.io/che-incubator/jetbrains-ide-dev-server:latest . 
+            docker build -f build/dockerfiles/Dockerfile --push -t quay.io/che-incubator/che-idea-dev-server:${{ env.BRANCH_NAME }} -t quay.io/che-incubator/che-idea-dev-server:latest . 
           fi
