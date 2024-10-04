@@ -10,8 +10,8 @@
 
 # Base image tag updater line.
 # See https://github.com/eclipse-che/che-release/pull/90
-# https://registry.access.redhat.com/ubi8/nodejs-20
-FROM registry.access.redhat.com/ubi8/nodejs-20:1-50.1720405266
+# https://registry.access.redhat.com/ubi9/nodejs-20
+FROM registry.access.redhat.com/ubi9/nodejs-20:1-59.1725906894
 
 # Dockerfile for building a container that brings everything needed to:
 # - install Jet Brains IDE to a Dev Workspace
@@ -19,7 +19,7 @@ FROM registry.access.redhat.com/ubi8/nodejs-20:1-50.1720405266
 
 USER 0
 
-COPY --chmod=755 /build/dockerfiles/*.sh /
+COPY --chmod=755 /build/scripts/*.sh /
 COPY /status-app/ /status-app/
 
 # Create a folders structure for mounting a shared volume and copy the editor binaries to.
