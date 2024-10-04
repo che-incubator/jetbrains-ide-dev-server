@@ -1,11 +1,11 @@
-# IDEA dev server for Che [![Dev](https://img.shields.io/static/v1?label=Open%20in&message=Che%20dogfooding%20server%20&logo=eclipseche&color=FDB940&labelColor=525C86)](https://che-dogfooding.apps.che-dev.x6e0.p1.openshiftapps.com/f?url=https://github.com/che-samples/web-nodejs-sample&che-editor=che-incubator/che-idea-server/next&policies.create=peruser) [![Dev](https://img.shields.io/static/v1?label=Open%20in&message=DevSandbox%20(hosted%20by%20Red%20Hat)&logo=eclipseche&color=FDB940&labelColor=525C86)](https://workspaces.openshift.com/f?url=https://github.com/che-samples/web-nodejs-sample&che-editor=https://eclipse-che.github.io/che-plugin-registry/main/v3/plugins/che-incubator/che-idea-server/next/devfile.yaml&policies.create=peruser)
+# JetBrains IDE dev server for Eclipse Che [![Dev](https://img.shields.io/static/v1?label=Open%20in&message=Che%20dogfooding%20server%20&logo=eclipseche&color=FDB940&labelColor=525C86)](https://che-dogfooding.apps.che-dev.x6e0.p1.openshiftapps.com/f?url=https://github.com/che-samples/web-nodejs-sample&che-editor=che-incubator/che-idea-server/next&policies.create=peruser) [![Dev](https://img.shields.io/static/v1?label=Open%20in&message=DevSandbox%20(hosted%20by%20Red%20Hat)&logo=eclipseche&color=FDB940&labelColor=525C86)](https://workspaces.openshift.com/f?url=https://github.com/che-samples/web-nodejs-sample&che-editor=https://eclipse-che.github.io/che-plugin-registry/main/v3/plugins/che-incubator/che-idea-server/next/devfile.yaml&policies.create=peruser)
 
 
-This project allows you to use your local IntelliJ IDEA connected to your remote development environment running in Eclipse Che.
+This project allows you to use your local JetBrains IDE connected to your remote development environment running in Eclipse Che.
 
 In Che-specific terms, this project represents an Eclipse Che editor based on IntelliJ IDEA Ultimate.
 
-To connect the local IDEA with the in-cluster dev server, see the [JetBrains Gateway plugin](https://github.com/redhat-developer/devspaces-gateway-plugin/).
+To connect the local JetBrains IDE with the in-cluster dev server, see the [JetBrains Gateway plugin](https://github.com/redhat-developer/devspaces-gateway-plugin/).
 
 ## Built images
 
