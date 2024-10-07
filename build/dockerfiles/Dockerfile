@@ -11,7 +11,7 @@
 # Base image tag updater line.
 # See https://github.com/eclipse-che/che-release/pull/90
 # https://registry.access.redhat.com/ubi9/nodejs-20
-FROM registry.access.redhat.com/ubi9/nodejs-20:1-59.1725906894
+FROM registry.access.redhat.com/ubi9/nodejs-20:1-59.1726663413
 
 # Dockerfile for building a container that brings everything needed to:
 # - install Jet Brains IDE to a Dev Workspace

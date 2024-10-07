@@ -31,17 +31,16 @@ ls -la "$ide_server_path"
 
 # Start the app that checks the IDE server status.
 # This will be workspace's 'main' endpoint.
+cd "$ide_server_path"/status-app
 if command -v npm &> /dev/null
 then
-  cd "$ide_server_path"/status-app
+  # User's container with Node.js
   nohup npm start &
 else
-  echo "node/npm could not be found. Running IDE dev server with no status page."
-  echo "Open IDE through the Gateway application."
+  # User's container without Node.js
+  # Use Node.js copied from the editor-injector container (UBI9).
+  nohup "$ide_server_path"/node index.js &
 fi
-
-# Skip all interactive shell prompts.
-export REMOTE_DEV_NON_INTERACTIVE=1
 
 cd "$ide_server_path"/bin
 ./remote-dev-server.sh run ${PROJECT_SOURCE}
