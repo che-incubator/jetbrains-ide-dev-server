@@ -8,6 +8,9 @@
 # Contributors:
 #   Red Hat, Inc. - initial API and implementation
 
+# https://registry.access.redhat.com/ubi8/nodejs-20
+FROM registry.access.redhat.com/ubi8/nodejs-20:1-58.1724661482 as ubi8
+
 # Base image tag updater line.
 # See https://github.com/eclipse-che/che-release/pull/90
 # https://registry.access.redhat.com/ubi9/nodejs-20
@@ -34,6 +37,9 @@ RUN for f in "${HOME}" "/etc/passwd" "/etc/group" "/status-app" "/idea-server"; 
 # Build the status app.
 WORKDIR /status-app/
 RUN npm install
+
+# to provide to a UBI8-based user's container
+COPY --from=ubi8 /usr/bin/node /node-ubi8
 
 # Switch to unprivileged user.
 USER 10001

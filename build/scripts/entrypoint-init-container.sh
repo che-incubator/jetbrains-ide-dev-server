@@ -46,8 +46,11 @@ fi
 
 cp -r /status-app/ "$ide_server_path"
 cp /entrypoint-volume.sh "$ide_server_path"
-# copy Node.js to the editor volume, in case there is no one in the user's container
-cp /usr/bin/node "$ide_server_path"
+
+# Copy Node.js to the editor volume,
+# in case there is no one in the user's container.
+cp /usr/bin/node "$ide_server_path"/node-ubi9
+cp /node-ubi8 "$ide_server_path"/node-ubi8
 
 echo "Volume content:"
 ls -la "$ide_server_path"
