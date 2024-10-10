@@ -47,6 +47,11 @@ jobs:
           else
             echo "[INFO] No existing tags detected for $VERSION"
           fi
+      - name: Set up environment
+        run: |
+          sudo apt-get update -y || true
+          sudo apt-get -y -q install hub
+          hub --version
       -
         name: "Tag release"
         run: |
