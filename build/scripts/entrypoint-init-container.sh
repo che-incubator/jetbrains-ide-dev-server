@@ -26,6 +26,7 @@ fi
 # Download the IDE binaries and install them to the shared volume.
 cd "$ide_server_path"
 echo "Downloading IDE binaries..."
+# After updating the versions here, update the editor definitions in https://github.com/eclipse-che/che-operator/tree/main/editors-definitions
 if [[ "$ide_flavour" == "idea" ]]; then
     curl -sL https://download.jetbrains.com/idea/ideaIU-2024.2.3.tar.gz | tar xzf - --strip-components=1
 elif [[ "$ide_flavour" == "webstorm" ]]; then
@@ -47,8 +48,8 @@ fi
 cp -r /status-app/ "$ide_server_path"
 cp /entrypoint-volume.sh "$ide_server_path"
 
-# Copy Node.js to the editor volume,
-# in case there is no one in the user's container.
+# Copy Node.js binaries to the editor volume.
+# It will be copied to the user container if it's absent.
 cp /usr/bin/node "$ide_server_path"/node-ubi9
 cp /node-ubi8 "$ide_server_path"/node-ubi8
 
