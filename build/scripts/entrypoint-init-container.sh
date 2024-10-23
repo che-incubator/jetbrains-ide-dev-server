@@ -27,21 +27,21 @@ fi
 cd "$ide_server_path"
 echo "Downloading IDE binaries..."
 if [[ "$ide_flavour" == "idea" ]]; then
-    curl -sL https://download.jetbrains.com/idea/ideaIU-2024.2.tar.gz | tar xzf - --strip-components=1
+    curl -sL https://download.jetbrains.com/idea/ideaIU-2024.2.3.tar.gz | tar xzf - --strip-components=1
 elif [[ "$ide_flavour" == "webstorm" ]]; then
-    curl -sL https://download.jetbrains.com/webstorm/WebStorm-2024.2.tar.gz | tar xzf - --strip-components=1
+    curl -sL https://download.jetbrains.com/webstorm/WebStorm-2024.2.3.tar.gz | tar xzf - --strip-components=1
 elif [[ "$ide_flavour" == "pycharm" ]]; then
-    curl -sL https://download.jetbrains.com/python/pycharm-professional-2024.2.tar.gz | tar xzf - --strip-components=1
+    curl -sL https://download.jetbrains.com/python/pycharm-professional-2024.2.3.tar.gz | tar xzf - --strip-components=1
 elif [[ "$ide_flavour" == "goland" ]]; then
-    curl -sL https://download.jetbrains.com/go/goland-2024.2.tar.gz | tar xzf - --strip-components=1
+    curl -sL https://download.jetbrains.com/go/goland-2024.2.3.tar.gz | tar xzf - --strip-components=1
 elif [[ "$ide_flavour" == "clion" ]]; then
-    curl -sL https://download.jetbrains.com/cpp/CLion-2024.2.tar.gz | tar xzf - --strip-components=1
+    curl -sL https://download.jetbrains.com/cpp/CLion-2024.2.2.tar.gz | tar xzf - --strip-components=1
 elif [[ "$ide_flavour" == "phpstorm" ]]; then
-    curl -sL https://download.jetbrains.com/webide/PhpStorm-2024.2.tar.gz | tar xzf - --strip-components=1
+    curl -sL https://download.jetbrains.com/webide/PhpStorm-2024.2.3.tar.gz | tar xzf - --strip-components=1
 elif [[ "$ide_flavour" == "rubymine" ]]; then
-    curl -sL https://download.jetbrains.com/ruby/RubyMine-2024.2.tar.gz | tar xzf - --strip-components=1
+    curl -sL https://download.jetbrains.com/ruby/RubyMine-2024.2.3.tar.gz | tar xzf - --strip-components=1
 elif [[ "$ide_flavour" == "rider" ]]; then
-    curl -sL https://download.jetbrains.com/rider/JetBrains.Rider-2024.2.tar.gz | tar xzf - --strip-components=1
+    curl -sL https://download.jetbrains.com/rider/JetBrains.Rider-2024.2.3.tar.gz | tar xzf - --strip-components=1
 fi
 
 cp -r /status-app/ "$ide_server_path"
