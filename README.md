@@ -7,13 +7,16 @@ In Che-specific terms, this project represents an Eclipse Che editor based on In
 
 To connect the local JetBrains IDE with the in-cluster dev server, see the [JetBrains Gateway plugin](https://github.com/redhat-developer/devspaces-gateway-plugin/).
 
-## Built images
+## Images
 
-The image built from the `main` branch is published to [quay.io/che-incubator/che-idea-dev-server:next](https://quay.io/repository/che-incubator/che-idea-dev-server?tab=tags).
+To build a container image:
+```bash
+podman build . -f build/dockerfiles/Dockerfile -t che-ide-dev-server:next
+```
 
-## Image build
+[quay.io/che-incubator/che-idea-dev-server:next](https://quay.io/repository/che-incubator/che-idea-dev-server?tab=tags) is built and published each time a new change is merged to the `main` branch.
 
-`podman build . -f build/dockerfiles/Dockerfile -t che-idea-dev-server:next`
+[quay.io/che-incubator/che-idea-dev-server:latest](https://quay.io/repository/che-incubator/che-idea-dev-server?tab=tags) is built and published for each new project release.
 
 ## Troubleshooting
 Integration of Jet Brains Gateway with Eclipse Che this editor provides is in the early stage. So, you may face some problems that require a manual resolution.
