@@ -40,16 +40,18 @@ var joinLink = new Promise((resolve) => {
 
 // return the status page
 const app = express();
+app.use(express.static(__dirname + '/public'));
 app.set('view engine', 'ejs');
 app.get('/', async function (req, res) {
-  const ideName = ideInfo.productVendor + ' ' + ideInfo.name + ' ' + ideInfo.version;
+  const ideFullName = ideInfo.productVendor + ' ' + ideInfo.name + ' ' + ideInfo.version;
   const invitationLink = (await joinLink).replaceAll('&', '_');
   const dwNamespace = process.env.DEVWORKSPACE_NAMESPACE;
   const dwName = process.env.DEVWORKSPACE_NAME;
+  const title = dwName;
   const clusterConsoleURL = process.env.CLUSTER_CONSOLE_URL;
-  const podName = process.env.HOSTNAME;
+  const dashboardURL = process.env.DASHBOARD_URL;
   // render the page from EJS template
-  res.render('status', { ideName, dwNamespace, dwName, clusterConsoleURL, podName, invitationLink });
+  res.render('status', { title, ideFullName, dwNamespace, dwName, clusterConsoleURL, invitationLink, dashboardURL });
 });
 
 // server setup
