@@ -49,7 +49,7 @@ app.get('/', async function (req, res) {
   const dwName = process.env.DEVWORKSPACE_NAME;
   const title = dwName;
   const clusterConsoleURL = process.env.CLUSTER_CONSOLE_URL;
-  const dashboardURL = process.env.DASHBOARD_URL;
+  const dashboardURL = process.env.CHE_DASHBOARD_URL;
   // render the page from EJS template
   res.render('status', { title, ideFullName, dwNamespace, dwName, clusterConsoleURL, invitationLink, dashboardURL });
 });
