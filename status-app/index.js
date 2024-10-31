@@ -12,6 +12,7 @@
 
 const chokidar = require('chokidar');
 const fs = require("fs");
+const path = require('path');
 const express = require('express');
 const ideInfo = require('../product-info.json');
 
@@ -40,7 +41,7 @@ var joinLink = new Promise((resolve) => {
 
 // return the status page
 const app = express();
-app.use(express.static(__dirname + '/public'));
+app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 app.get('/', async function (req, res) {
   const ideFullName = ideInfo.productVendor + ' ' + ideInfo.name + ' ' + ideInfo.version;
