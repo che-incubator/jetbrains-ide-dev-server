@@ -20,12 +20,12 @@ const ideInfo = require('../product-info.json');
 const logsFile = '../std.out';
 
 // watch for the 'joinLink' in the IDE server's output
-var joinLink = new Promise((resolve) => {
+var joinLink = new Promise((resolve, reject) => {
   const watcher = chokidar.watch(logsFile);
   watcher.on('change', (event, path) => {
     fs.readFile(logsFile, "utf-8", (err, data) => {
       if (err)
-        throw err;
+        reject(err);
 
       if (data.includes('Join link: tcp://')) {
         const tcpLinkRegex = /(tcp:\/\/[^\s]+)/g;
@@ -45,12 +45,23 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.set('view engine', 'ejs');
 app.get('/', async function (req, res) {
   const ideFullName = ideInfo.productVendor + ' ' + ideInfo.name + ' ' + ideInfo.version;
-  const invitationLink = (await joinLink).replaceAll('&', '_');
+
+  var invitationLink;
+  try {
+    // Some user's containers contain Node.js<15
+    // which doesn't support replaceAll('&', '_')
+    // So, use replace with regexp here.
+    invitationLink = (await joinLink).replace(/['&']/g, '_');
+  } catch (err) {
+    console.error('Error while getting a join link', err);
+  }
+
   const dwNamespace = process.env.DEVWORKSPACE_NAMESPACE;
   const dwName = process.env.DEVWORKSPACE_NAME;
   const title = dwName;
   const clusterConsoleURL = process.env.CLUSTER_CONSOLE_URL;
   const dashboardURL = process.env.CHE_DASHBOARD_URL;
+
   // render the page from EJS template
   res.render('status', { title, ideFullName, dwNamespace, dwName, clusterConsoleURL, invitationLink, dashboardURL });
 });
