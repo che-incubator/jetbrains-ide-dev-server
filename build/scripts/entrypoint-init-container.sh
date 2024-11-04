@@ -36,7 +36,7 @@ elif [[ "$ide_flavour" == "pycharm" ]]; then
 elif [[ "$ide_flavour" == "goland" ]]; then
     curl -sL https://download.jetbrains.com/go/goland-2024.2.3.tar.gz | tar xzf - --strip-components=1
 elif [[ "$ide_flavour" == "clion" ]]; then
-    curl -sL https://download.jetbrains.com/cpp/CLion-2024.2.2.tar.gz | tar xzf - --strip-components=1
+    curl -sL https://download.jetbrains.com/cpp/CLion-2024.2.3.tar.gz | tar xzf - --strip-components=1
 elif [[ "$ide_flavour" == "phpstorm" ]]; then
     curl -sL https://download.jetbrains.com/webide/PhpStorm-2024.2.3.tar.gz | tar xzf - --strip-components=1
 elif [[ "$ide_flavour" == "rubymine" ]]; then
