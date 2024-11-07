@@ -90,12 +90,14 @@ updatePackageVersionAndCommitChanges() {
 
   echo "[INFO] Set ${version} in package.json"
 
-  jq '.version |= "'${version}'"' status-app/package.json > status-app/package.json.update
-  mv -f status-app/package.json.update status-app/package.json
+  npm --no-git-tag-version version --allow-same-version --prefix status-app ${NEXT_VERSION}
+
+  # jq '.version |= "'${version}'"' status-app/package.json > status-app/package.json.update
+  # mv -f status-app/package.json.update status-app/package.json
 
   echo "[INFO] Push changes to ${branch} branch"
 
-  git add status-app/package.json
+  git add status-app/package.json status-app/package-lock.json
   git commit -s -m "${message}"
   git push origin "${branch}"
 }
