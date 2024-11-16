@@ -27,23 +27,38 @@ fi
 cd "$ide_server_path"
 echo "Downloading IDE binaries..."
 # After updating the versions here, update the editor definitions in https://github.com/eclipse-che/che-operator/tree/main/editors-definitions
-if [[ "$ide_flavour" == "idea" ]]; then
-    curl -sL https://download.jetbrains.com/idea/ideaIU-2024.2.3.tar.gz | tar xzf - --strip-components=1
-elif [[ "$ide_flavour" == "webstorm" ]]; then
-    curl -sL https://download.jetbrains.com/webstorm/WebStorm-2024.2.3.tar.gz | tar xzf - --strip-components=1
-elif [[ "$ide_flavour" == "pycharm" ]]; then
-    curl -sL https://download.jetbrains.com/python/pycharm-professional-2024.2.3.tar.gz | tar xzf - --strip-components=1
-elif [[ "$ide_flavour" == "goland" ]]; then
-    curl -sL https://download.jetbrains.com/go/goland-2024.2.3.tar.gz | tar xzf - --strip-components=1
-elif [[ "$ide_flavour" == "clion" ]]; then
-    curl -sL https://download.jetbrains.com/cpp/CLion-2024.2.3.tar.gz | tar xzf - --strip-components=1
-elif [[ "$ide_flavour" == "phpstorm" ]]; then
-    curl -sL https://download.jetbrains.com/webide/PhpStorm-2024.2.3.tar.gz | tar xzf - --strip-components=1
-elif [[ "$ide_flavour" == "rubymine" ]]; then
-    curl -sL https://download.jetbrains.com/ruby/RubyMine-2024.2.3.tar.gz | tar xzf - --strip-components=1
-elif [[ "$ide_flavour" == "rider" ]]; then
-    curl -sL https://download.jetbrains.com/rider/JetBrains.Rider-2024.2.3.tar.gz | tar xzf - --strip-components=1
-fi
+ide_download_url=""
+case $ide_flavour in
+  idea)
+    ide_download_url="https://download.jetbrains.com/idea/ideaIU-2024.2.3.tar.gz"
+    ;;
+  webstorm)
+    ide_download_url="https://download.jetbrains.com/webstorm/WebStorm-2024.2.3.tar.gz"
+    ;;
+  pycharm)
+    ide_download_url="https://download.jetbrains.com/python/pycharm-professional-2024.2.3.tar.gz"
+    ;;
+  goland)
+    ide_download_url="https://download.jetbrains.com/go/goland-2024.2.3.tar.gz"
+    ;;
+  clion)
+    ide_download_url="https://download.jetbrains.com/cpp/CLion-2024.2.3.tar.gz"
+    ;;
+  phpstorm)
+    ide_download_url="https://download.jetbrains.com/webide/PhpStorm-2024.2.3.tar.gz"
+    ;;
+  rubymine)
+    ide_download_url="https://download.jetbrains.com/ruby/RubyMine-2024.2.3.tar.gz"
+    ;;
+  rider)
+    ide_download_url="https://download.jetbrains.com/rider/JetBrains.Rider-2024.2.3.tar.gz"
+    ;;
+  *)
+    echo -n "Unknown IDE is specified: $ide_flavour"
+    echo -n "Check the editor definition."
+    ;;
+esac
+curl -sL "$ide_download_url" | tar xzf - --strip-components=1
 
 cp -r /status-app/ "$ide_server_path"
 cp /entrypoint-volume.sh "$ide_server_path"
