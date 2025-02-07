@@ -34,14 +34,17 @@
     </script>
 
     <h1>Workspace <%= dwName %> is running</h1>
-    <h4 class="center">Make sure your local oc client is logged in to your OpenShift cluster</h4>
-    <p class="center">Go to the <a href="<%= clusterConsoleURL %>" target="_blank">Open OpenShift Console</a> to get the login command from the top right menu.</p>
+
+    <div class="border">
+      <h4 class="center">Make sure your local oc client is logged in to your OpenShift cluster</h4>
+      <p class="center">Go to the <a href="<%= clusterConsoleURL %>" target="_blank">Open OpenShift Console</a> to get the login command from the top right menu.</p>
+    </div>
+
+    <h4 class="center">Can't open the workspace?</h4>
+    <p class="center">If your browser doesn't ask you to open Gateway, make sure the prerequisites mentioned in <a href="https://eclipse.dev/che/docs/stable/end-user-guide/idea-ultimate/" target="_blank">the documentation</a> are met.</p>
 
     <!-- Provide an alternative way to open IDE, in case the browser can't show a pop-up -->
     <p class="center"><a href="javascript:;" onclick="openGateway()"><b>Open in <%= ideFullName %></b></a></p>
     <p class="center"><a href="<%= dashboardURL %>" target="_blank">Open Dashboard</a></p>
-
-    <h4 class="center">Can't open the workspace?</h4>
-    <p class="center">If your browser doesn't ask you to open Gateway, make sure the prerequisites mentioned in <a href="https://eclipse.dev/che/docs/stable/end-user-guide/idea-ultimate/" target="_blank">the documentation</a> are met.</p>
   </body>
 </html>
