@@ -63,6 +63,9 @@ curl -sL "$ide_download_url" | tar xzf - --strip-components=1
 cp -r /status-app/ "$ide_server_path"
 cp /entrypoint-volume.sh "$ide_server_path"
 
+# Copy the Che-specific JetBrains IDE's config to the volume.
+cp /idea.properties "$ide_server_path"
+
 # Copy Node.js binaries to the editor volume.
 # It will be copied to the user container if it's absent.
 cp /usr/bin/node "$ide_server_path"/node-ubi9

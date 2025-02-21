@@ -25,6 +25,8 @@ USER 0
 
 COPY --chmod=755 /build/scripts/*.sh /
 COPY /status-app/ /status-app/
+# Copy the JetBrains IDE's config where some settings are overridden for Che CDE needs.
+COPY /build/jetbrains_configs/idea.properties/ /
 
 # Create a folders structure for mounting a shared volume and copy the editor binaries to.
 RUN mkdir -p /idea-server/status-app

@@ -106,5 +106,8 @@ else
   nohup "$ide_server_path"/node index.js &
 fi
 
+# Override the default JetBrains IDE's config by our own.
+mv "$ide_server_path"/idea.properties "${HOME}/idea.properties"
+
 cd "$ide_server_path"/bin
 ./remote-dev-server.sh run ${PROJECT_SOURCE}
