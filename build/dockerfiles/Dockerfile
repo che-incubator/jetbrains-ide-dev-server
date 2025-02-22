@@ -28,7 +28,7 @@ COPY /status-app/ /status-app/
 # Copy the JetBrains IDE's config where some settings are overridden for Che CDE needs.
 COPY /build/jetbrains_configs/idea.properties/ /
 
-# Create a folders structure for mounting a shared volume and copy the editor binaries to.
+# Create a folder structure for mounting a shared volume and copy the editor binaries.
 RUN mkdir -p /idea-server/status-app
 
 # Adjust the permissions on the entries which should be writable by group root.
@@ -44,7 +44,7 @@ RUN npm install
 # to provide to a UBI8-based user's container
 COPY --from=ubi8 /usr/bin/node /node-ubi8
 
-# Switch to unprivileged user.
+# Switch to an unprivileged user.
 USER 10001
 
 ENTRYPOINT /entrypoint.sh
