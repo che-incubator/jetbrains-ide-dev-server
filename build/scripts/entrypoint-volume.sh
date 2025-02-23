@@ -26,6 +26,7 @@ fi
 # mounted volume path
 ide_server_path="/idea-server"
 
+
 echo "Volume content:"
 ls -la "$ide_server_path"
 
