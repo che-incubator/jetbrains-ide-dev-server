@@ -22,6 +22,7 @@ const logsFile = '../std.out';
 // watch for the 'joinLink' in the IDE server's output
 var joinLink = new Promise((resolve, reject) => {
   const watcher = chokidar.watch(logsFile);
+
   watcher.on('change', (event, path) => {
     fs.readFile(logsFile, "utf-8", (err, data) => {
       if (err)
