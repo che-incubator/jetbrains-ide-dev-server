@@ -10,12 +10,12 @@
 
 # The image to get the Node.js binary to support running an IDE in a UBI8-based user container.
 # https://registry.access.redhat.com/ubi8/nodejs-20
-FROM registry.access.redhat.com/ubi8/nodejs-20:1-71 as ubi8
+FROM registry.access.redhat.com/ubi8/nodejs-20:1-72 as ubi8
 
 # Base image tag updater line.
 # See https://github.com/eclipse-che/che-release/pull/90
 # https://registry.access.redhat.com/ubi9/nodejs-20
-FROM registry.access.redhat.com/ubi9/nodejs-20:9.5-1734597699
+FROM registry.access.redhat.com/ubi9/nodejs-20:9.5-1739482759
 
 # Dockerfile for building a container that brings everything needed to:
 # - install Jet Brains IDE to a Dev Workspace
@@ -25,6 +25,8 @@ USER 0
 
 COPY --chmod=755 /build/scripts/*.sh /
 COPY /status-app/ /status-app/
+# Copy the JetBrains IDE's config where some settings are overridden for Che CDE needs.
+COPY /build/jetbrains_configs/idea.properties/ /
 
 # Create a folders structure for mounting a shared volume and copy the editor binaries to.
 RUN mkdir -p /idea-server/status-app
