@@ -81,7 +81,7 @@ get_openssl_version() {
 
 # Start the app that checks the IDE server status.
 # This will be workspace's 'main' endpoint.
-cd "$ide_server_path"/status-app
+cd "$ide_server_path"/status-app || exit
 if command -v npm &> /dev/null; then
   # Node.js installed in a user's container
   nohup npm start &
@@ -97,6 +97,10 @@ else
     ;;
   *"3"*)
     mv "$ide_server_path"/node-ubi9 "$ide_server_path"/node
+
+    # When registry.access.redhat.com/ubi9 is used as a user container,
+    # there no libbrotli in the image. We provide it additionally.
+    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$ide_server_path/node-ubi9-ld_libs"
     ;;
   *)
     echo "[WARNING] Unsupported OpenSSL major version. Node.js from UBI9 will be used."
@@ -107,8 +111,16 @@ else
   nohup "$ide_server_path"/node index.js &
 fi
 
-# Override the default JetBrains IDE's config by our own.
-mv "$ide_server_path"/idea.properties "${HOME}/idea.properties"
+cd "$ide_server_path"/bin || exit
 
-cd "$ide_server_path"/bin
-./remote-dev-server.sh run ${PROJECT_SOURCE}
+# remote-dev-server.sh writes to several sub-folders of HOME (.config, .cache, etc.)
+# When registry.access.redhat.com/ubi9 is used for running a user container, HOME=/ which is read-only.
+# In this case, we point remote-dev-server.sh to a writable HOME.
+
+if [ -w "$HOME" ]; then
+    ./remote-dev-server.sh run "$PROJECT_SOURCE"
+else
+    echo "No write permission to HOME=$HOME. IDE dev server will be launched with HOME=/tmp/user"
+    mkdir /tmp/user
+    env HOME=/tmp/user ./remote-dev-server.sh run "$PROJECT_SOURCE"
+fi
