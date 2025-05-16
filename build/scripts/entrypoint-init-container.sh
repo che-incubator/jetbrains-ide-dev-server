@@ -24,7 +24,7 @@ if [ -z "$ide_flavour" ]; then
 fi
 
 # Download the IDE binaries and install them to the shared volume.
-cd "$ide_server_path"
+cd "$ide_server_path" || exit
 echo "Downloading IDE binaries..."
 # After updating the versions here, update the editor definitions in https://github.com/eclipse-che/che-operator/tree/main/editors-definitions
 ide_download_url=""
@@ -63,13 +63,11 @@ curl -sL "$ide_download_url" | tar xzf - --strip-components=1
 cp -r /status-app/ "$ide_server_path"
 cp /entrypoint-volume.sh "$ide_server_path"
 
-# Copy the Che-specific JetBrains IDE's config to the volume.
-cp /idea.properties "$ide_server_path"
-
 # Copy Node.js binaries to the editor volume.
 # It will be copied to the user container if it's absent.
 cp /usr/bin/node "$ide_server_path"/node-ubi9
 cp /node-ubi8 "$ide_server_path"/node-ubi8
+cp -r /node-ubi9-ld_libs "$ide_server_path"/node-ubi9-ld_libs
 
 echo "Volume content:"
 ls -la "$ide_server_path"
