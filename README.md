@@ -5,6 +5,11 @@ This project enables running a JetBrains IDE as a remote development server in E
 
 Check out [JetBrains Gateway plugin](https://github.com/redhat-developer/devspaces-gateway-plugin/) to connect your local JetBrains IDE to a remote CDE.
 
+## Feedback
+We love to hear from users and developers.
+
+You can ask questions, report bugs, and request features using [GitHub issues](https://github.com/eclipse/che/issues) in the Eclipse Che main repository.
+
 ## Images
 
 To build a container image:
