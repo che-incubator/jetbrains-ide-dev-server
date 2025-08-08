@@ -25,7 +25,8 @@ fi
 
 # mounted volume path
 ide_server_path="/idea-server"
-
+# temporary home directory
+tmp_home="/tmp/user"
 
 echo "Volume content:"
 ls -la "$ide_server_path"
@@ -84,7 +85,7 @@ get_openssl_version() {
 cd "$ide_server_path"/status-app || exit
 if command -v npm &> /dev/null; then
   # Node.js installed in a user's container
-  nohup npm start &
+  nohup env HOME=$tmp_home npm start &
 else
   # no Node.js installed,
   # use the one that editor-injector provides
@@ -108,7 +109,7 @@ else
     ;;
   esac
 
-  nohup "$ide_server_path"/node index.js &
+  nohup env HOME=$tmp_home "$ide_server_path"/node index.js &
 fi
 
 # To run Rider.
@@ -124,7 +125,44 @@ cd "$ide_server_path"/bin || exit
 if [ -w "$HOME" ]; then
     ./remote-dev-server.sh run "$PROJECT_SOURCE"
 else
-    echo "No write permission to HOME=$HOME. IDE dev server will be launched with HOME=/tmp/user"
-    mkdir /tmp/user
-    env HOME=/tmp/user ./remote-dev-server.sh run "$PROJECT_SOURCE"
+    echo "No write permission to HOME=$HOME. IDE dev server will be launched with HOME=$tmp_home"
+    cp "$ide_server_path"/bin/remote-dev-server.sh "$ide_server_path"/bin/remote-dev-server.orig.sh
+    chmod +x "$ide_server_path"/bin/remote-dev-server.orig.sh
+    cat <<'SCRIPT' > "$ide_server_path"/bin/remote-dev-server.sh
+readonly tmp_home="/tmp/user"
+readonly ide_server_path=/idea-server/
+readonly PRODUCT_NAME=$(grep -m1 dataDirectoryName "$ide_server_path"/product-info.json | cut -d'"' -f4)
+mkdir -p $tmp_home/.config \
+  $tmp_home/.cache \
+  $tmp_home/.local/share \
+  $tmp_home/data/JetBrains/"$PRODUCT_NAME" \
+  $tmp_home/config/JetBrains/"$PRODUCT_NAME"/options
+
+CONFIG_TRUSTED_PATHS="$tmp_home/config/JetBrains/$PRODUCT_NAME/options/trusted-paths.xml"
+if [ ! -f "$CONFIG_TRUSTED_PATHS" ]; then
+  cat > "$CONFIG_TRUSTED_PATHS" <<EOF
+<application>
+  <component name="Trusted.Paths.Settings">
+    <option name="TRUSTED_PATHS">
+      <list>
+        <option value="$PROJECT_SOURCE" />
+      </list>
+    </option>
+  </component>
+</application>
+EOF
 fi
+
+export HOME="$tmp_home"
+export XDG_CONFIG_HOME="$tmp_home/config"
+export XDG_CACHE_HOME="$tmp_home/cache"
+export XDG_DATA_HOME="$tmp_home/data"
+
+"$ide_server_path"/bin/remote-dev-server.orig.sh $@\
+  -Djna.library.path="$ide_server_path"/plugins/remote-dev-server/selfcontained/lib
+SCRIPT
+
+    "$ide_server_path"/bin/remote-dev-server.sh run "$PROJECT_SOURCE"
+
+fi
+
