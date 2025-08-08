@@ -84,7 +84,7 @@ get_openssl_version() {
 cd "$ide_server_path"/status-app || exit
 if command -v npm &> /dev/null; then
   # Node.js installed in a user's container
-  nohup npm start &
+  nohup env HOME=/tmp/user npm start &
 else
   # no Node.js installed,
   # use the one that editor-injector provides
@@ -108,7 +108,7 @@ else
     ;;
   esac
 
-  nohup "$ide_server_path"/node index.js &
+  nohup env HOME=/tmp/user "$ide_server_path"/node index.js &
 fi
 
 cd "$ide_server_path"/bin || exit
@@ -121,6 +121,27 @@ if [ -w "$HOME" ]; then
     ./remote-dev-server.sh run "$PROJECT_SOURCE"
 else
     echo "No write permission to HOME=$HOME. IDE dev server will be launched with HOME=/tmp/user"
-    mkdir /tmp/user
-    env HOME=/tmp/user ./remote-dev-server.sh run "$PROJECT_SOURCE"
+    readonly TMP_HOME="/tmp/user"
+    mkdir -p $TMP_HOME/.config \
+      $TMP_HOME/.cache \
+      $TMP_HOME/.local/share \
+      $TMP_HOME/config/JetBrains/GoLand2024.3/options
+
+    cat > $TMP_HOME/config/JetBrains/GoLand2024.3/options/trusted-paths.xml <<EOF
+<application>
+  <component name="Trusted.Paths.Settings">
+    <option name="TRUSTED_PATHS">
+      <list>
+        <option value="$PROJECT_SOURCE" />
+      </list>
+    </option>
+  </component>
+</application>
+EOF
+    readonly SERVER_HOME=/idea-server/
+    env HOME=$TMP_HOME \
+      XDG_CONFIG_HOME=$TMP_HOME/config \
+      XDG_CACHE_HOME=$TMP_HOME/cache \
+      XDG_DATA_HOME=$TMP_HOME/data \
+      $SERVER_HOME/bin/remote-dev-server.sh run "$PROJECT_SOURCE" -Djna.library.path=$SERVER_HOME/plugins/remote-dev-server/selfcontained/lib
 fi
