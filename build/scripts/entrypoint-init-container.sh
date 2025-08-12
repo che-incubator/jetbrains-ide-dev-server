@@ -10,6 +10,7 @@
 # Contributors:
 #   Red Hat, Inc. - initial API and implementation
 #
+set -x
 
 # Being called as a pre-start command, the script downloads the requested IDE and
 # copies the binaries to the shared volume which should be mounted to a folder in a dev container.
