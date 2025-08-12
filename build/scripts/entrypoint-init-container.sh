@@ -15,6 +15,7 @@
 # copies the binaries to the shared volume which should be mounted to a folder in a dev container.
 
 ide_flavour="$1"
+ide_id="$2"
 # mounted volume path
 ide_server_path="/idea-server"
 
@@ -58,6 +59,13 @@ case $ide_flavour in
     echo -n "Check the editor definition."
     ;;
 esac
+
+editor_download_url_env_name="EDITOR_DOWNLOAD_URL_$(echo "$ide_id" | tr '/' '_' | tr '-' '_' | tr '[:lower:]' '[:upper:]')"
+if [ -n "${editor_download_url_env_name}" ]; then
+    ide_download_url="${editor_download_url_env_name}"
+    echo "Using editor download URL from environment variable: $ide_download_url"
+fi
+
 curl -sL "$ide_download_url" | tar xzf - --strip-components=1
 
 cp -r /status-app/ "$ide_server_path"
