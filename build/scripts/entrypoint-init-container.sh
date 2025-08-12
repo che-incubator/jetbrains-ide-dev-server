@@ -61,8 +61,9 @@ case $ide_flavour in
 esac
 
 editor_download_url_env_name="EDITOR_DOWNLOAD_URL_$(echo "$ide_id" | tr '/' '_' | tr '-' '_' | tr '[:lower:]' '[:upper:]')"
-if [ -n "${editor_download_url_env_name}" ]; then
-    ide_download_url="${editor_download_url_env_name}"
+editor_download_url_configured=$(eval "echo \$${editor_download_url_env_name}")
+if [ -n "$editor_download_url_configured" ]; then
+    ide_download_url=$editor_download_url_configured
     echo "Using editor download URL from environment variable: $ide_download_url"
 fi
 
