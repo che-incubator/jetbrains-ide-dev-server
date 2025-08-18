@@ -111,6 +111,10 @@ else
   nohup "$ide_server_path"/node index.js &
 fi
 
+# To run Rider.
+# See the details in che#23228
+export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+
 cd "$ide_server_path"/bin || exit
 
 # remote-dev-server.sh writes to several sub-folders of HOME (.config, .cache, etc.)
