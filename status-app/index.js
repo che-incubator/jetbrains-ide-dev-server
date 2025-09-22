@@ -63,8 +63,20 @@ app.get('/', async function (req, res) {
   const clusterConsoleURL = process.env.CLUSTER_CONSOLE_URL;
   const dashboardURL = process.env.CHE_DASHBOARD_URL;
 
+  // derive OAuth URL from console URL
+  let oauthURL;
+  if (clusterConsoleURL) {
+    try {
+      const url = new URL(clusterConsoleURL);
+      url.hostname = url.hostname.replace('console-openshift-console', 'oauth-openshift');
+      oauthURL = `${url.protocol}//${url.hostname}/oauth/token/request`;
+    } catch (e) {
+      console.error('Invalid clusterConsoleURL', e);
+    }
+  }
+
   // render the page from EJS template
-  res.render('status', { title, ideFullName, dwNamespace, dwName, clusterConsoleURL, invitationLink, dashboardURL });
+  res.render('status', { title, ideFullName, dwNamespace, dwName, oauthURL, invitationLink, dashboardURL });
 });
 
 // server setup
