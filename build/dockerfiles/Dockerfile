@@ -30,13 +30,9 @@ COPY /status-app/ /status-app/
 RUN mkdir -p /idea-server/status-app
 
 # Adjust the permissions on the entries which should be writable by group root.
-RUN for f in "${HOME}" "/etc/passwd" "/etc/group" "/status-app" "/idea-server"; do \
-        if [ "$f" != "/etc/passwd" ]; then \
-            chgrp -R 0 "$f" && \
-            chmod -R g+rwX "$f"; \
-        else \
-            chmod -R g-w "$f"; \
-        fi; \
+RUN for f in "${HOME}" "/etc/passwd" "/etc/group" "/status-app" "/idea-server"; do\
+        chgrp -R 0 ${f} && \
+        chmod -R g+rwX ${f}; \
     done
 
 # Build the status app.
