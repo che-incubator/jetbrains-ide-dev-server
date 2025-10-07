@@ -30,13 +30,9 @@ COPY /status-app/ /status-app/
 RUN mkdir -p /idea-server/status-app
 
 # Adjust the permissions on the entries which should be writable by group root.
-RUN for f in "${HOME}" "/etc/passwd" "/etc/group" "/status-app" "/idea-server"; do \
-        if [ "$f" != "/etc/passwd" ]; then \
-            chgrp -R 0 "$f" && \
-            chmod -R g+rwX "$f"; \
-        else \
-            chmod -R g-w "$f"; \
-        fi; \
+RUN for f in "${HOME}" "/etc/passwd" "/etc/group" "/status-app" "/idea-server"; do\
+        chgrp -R 0 ${f} && \
+        chmod -R g+rwX ${f}; \
     done
 
 # Build the status app.
@@ -49,6 +45,10 @@ RUN mkdir /node-ubi9-ld_libs && cp -r /usr/lib64/libbrotli* /node-ubi9-ld_libs/
 
 # To make the solution backward compatible with the UBI8-based user containers.
 COPY --from=ubi8 /usr/bin/node /node-ubi8
+
+# remove group write permission from /etc/passwd
+RUN chmod 644 /etc/passwd && \
+    chown root:root /etc/passwd
 
 # Switch to an unprivileged user.
 USER 10001
