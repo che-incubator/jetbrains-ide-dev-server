@@ -1,11 +1,11 @@
 .DS_Store
 node_modules
 
-user-activity-tracker/.DS_Store
-user-activity-tracker/.gradle
-user-activity-tracker/.idea
-user-activity-tracker/.intellijPlatform/
-user-activity-tracker/.kotlin/
-user-activity-tracker/build/*
-!user-activity-tracker/build/distributions/
-!user-activity-tracker/build/distributions/user-activity-tracker-1.0-SNAPSHOT.zip
+che-integration-plugin/.DS_Store
+che-integration-plugin/.gradle
+che-integration-plugin/.idea
+che-integration-plugin/.intellijPlatform/
+che-integration-plugin/.kotlin/
+che-integration-plugin/build/*
+che-integration-plugin/build/distributions/
+!che-integration-plugin/build/distributions/che-integration-plugin-1.0-SNAPSHOT.zip

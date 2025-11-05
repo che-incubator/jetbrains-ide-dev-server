@@ -79,12 +79,6 @@ get_openssl_version() {
   fi
 }
 
-
-# Install the activity-tracker plugin.
-# "$ide_server_path"/bin/remote-dev-server.sh installPlugin "$ide_server_path"/plugins/user-activity-tracker
-
-
-
 # Start the app that checks the IDE server status.
 # This will be workspace's 'main' endpoint.
 cd "$ide_server_path"/status-app || exit
@@ -133,7 +127,7 @@ cd "$ide_server_path"/bin || exit
 # In this case, we point remote-dev-server.sh to a writable HOME.
 
 if [ -w "$HOME" ]; then
-    # pre-install the plugin
+    # pre-install the Che integration plugin
     PRODUCT_NAME=$(grep -m1 dataDirectoryName "$ide_server_path"/product-info.json | cut -d'"' -f4)
     mkdir -p "$HOME"/.local/share/JetBrains/"$PRODUCT_NAME"
     # see https://www.jetbrains.com/help/idea/work-inside-remote-project.html#plugins
@@ -175,7 +169,7 @@ export XDG_CACHE_HOME="$tmp_home/cache"
 export XDG_DATA_HOME="$tmp_home/data"
 
 
-# pre-install the plugin
+# pre-install the Che integration plugin
 unzip "$ide_server_path"/plugin.zip -d "$HOME"/.local/share/JetBrains/"$PRODUCT_NAME"
 
 

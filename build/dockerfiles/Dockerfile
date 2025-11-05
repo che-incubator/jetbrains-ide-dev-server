@@ -17,8 +17,8 @@ FROM registry.access.redhat.com/ubi8/nodejs-20:1-72 as ubi8
 FROM gradle:9.1.0-jdk21 as plugin-builder
 
 # # Copy the plugin sources
-# COPY /user-activity-tracker/ /user-activity-tracker/
-# WORKDIR /user-activity-tracker/
+# COPY /che-integration-plugin/ /che-integration-plugin/
+# WORKDIR /che-integration-plugin/
 
 # # Adapt the build to a containerized environment
 # RUN mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
@@ -26,11 +26,11 @@ FROM gradle:9.1.0-jdk21 as plugin-builder
 
 # RUN ./gradlew --no-daemon --debug -Dorg.gradle.vfs.watch=false -Dkotlin.daemon.enabled=false clean buildPlugin
 
-# RUN cp build/distributions/user-activity-tracker-1.0-SNAPSHOT.zip /plugin.zip
+# RUN cp build/distributions/che-integration-plugin-1.0-SNAPSHOT.zip /plugin.zip
 
 # For now, until the plugin build isn't adapted to a containerized environment and failed,
 # copy the pre-built plugin.
-COPY user-activity-tracker/build/distributions/user-activity-tracker-1.0-SNAPSHOT.zip /plugin.zip
+COPY che-integration-plugin/build/distributions/che-integration-plugin-1.0-SNAPSHOT.zip /plugin.zip
 
 
 # Use the latest image that provides the statically-build machine-exec binary (CGO_ENABLED=1)
