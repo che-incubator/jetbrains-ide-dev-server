@@ -12,6 +12,31 @@
 # https://registry.access.redhat.com/ubi8/nodejs-20
 FROM registry.access.redhat.com/ubi8/nodejs-20:1-72 as ubi8
 
+
+# FROM registry.access.redhat.com/ubi9/openjdk-21:latest as plugin-builder
+FROM gradle:9.1.0-jdk21 as plugin-builder
+
+# # Copy the plugin sources
+# COPY /user-activity-tracker/ /user-activity-tracker/
+# WORKDIR /user-activity-tracker/
+
+# # Adapt the build to a containerized environment
+# RUN mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
+# RUN mkdir -p ~/.gradle && echo "kotlin.daemon.enabled=false" >> ~/.gradle/gradle.properties
+
+# RUN ./gradlew --no-daemon --debug -Dorg.gradle.vfs.watch=false -Dkotlin.daemon.enabled=false clean buildPlugin
+
+# RUN cp build/distributions/user-activity-tracker-1.0-SNAPSHOT.zip /plugin.zip
+
+# For now, until the plugin build isn't adapted to a containerized environment and failed,
+# copy the pre-built plugin.
+COPY user-activity-tracker/build/distributions/user-activity-tracker-1.0-SNAPSHOT.zip /plugin.zip
+
+
+# Use the latest image that provides the statically-build machine-exec binary (CGO_ENABLED=1)
+FROM quay.io/eclipse/che-machine-exec:7.70.0 as machine-exec
+
+
 # Base image tag updater line.
 # See https://github.com/eclipse-che/che-release/pull/90
 # https://registry.access.redhat.com/ubi9/nodejs-20
@@ -45,6 +70,9 @@ RUN mkdir /node-ubi9-ld_libs && cp -r /usr/lib64/libbrotli* /node-ubi9-ld_libs/
 
 # To make the solution backward compatible with the UBI8-based user containers.
 COPY --from=ubi8 /usr/bin/node /node-ubi8
+
+COPY --from=machine-exec --chown=0:0 /go/bin/che-machine-exec /machine-exec
+COPY --from=plugin-builder --chown=0:0 /plugin.zip /plugin.zip
 
 # Switch to an unprivileged user.
 USER 10001

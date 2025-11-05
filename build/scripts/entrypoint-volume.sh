@@ -80,6 +80,11 @@ get_openssl_version() {
 }
 
 
+# Install the activity-tracker plugin.
+# "$ide_server_path"/bin/remote-dev-server.sh installPlugin "$ide_server_path"/plugins/user-activity-tracker
+
+
+
 # Start the app that checks the IDE server status.
 # This will be workspace's 'main' endpoint.
 cd "$ide_server_path"/status-app || exit
@@ -112,6 +117,11 @@ else
   nohup env HOME=$tmp_home "$ide_server_path"/node index.js &
 fi
 
+# Run the machine-exec server to stop a workspace by inactivity timeout
+export MACHINE_EXEC_PORT=3333
+nohup "$ide_server_path"/machine-exec --url "0.0.0.0:${MACHINE_EXEC_PORT}" &
+
+
 # To run Rider.
 # See the details in che#23228
 export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
@@ -123,6 +133,12 @@ cd "$ide_server_path"/bin || exit
 # In this case, we point remote-dev-server.sh to a writable HOME.
 
 if [ -w "$HOME" ]; then
+    # pre-install the plugin
+    PRODUCT_NAME=$(grep -m1 dataDirectoryName "$ide_server_path"/product-info.json | cut -d'"' -f4)
+    mkdir -p "$HOME"/.local/share/JetBrains/"$PRODUCT_NAME"
+    # see https://www.jetbrains.com/help/idea/work-inside-remote-project.html#plugins
+    unzip "$ide_server_path"/plugin.zip -d "$HOME"/.local/share/JetBrains/"$PRODUCT_NAME"
+
     ./remote-dev-server.sh run "$PROJECT_SOURCE"
 else
     echo "No write permission to HOME=$HOME. IDE dev server will be launched with HOME=$tmp_home"
@@ -134,7 +150,7 @@ readonly ide_server_path=/idea-server/
 readonly PRODUCT_NAME=$(grep -m1 dataDirectoryName "$ide_server_path"/product-info.json | cut -d'"' -f4)
 mkdir -p $tmp_home/.config \
   $tmp_home/.cache \
-  $tmp_home/.local/share \
+  $tmp_home/.local/share/JetBrains/"$PRODUCT_NAME" \
   $tmp_home/data/JetBrains/"$PRODUCT_NAME" \
   $tmp_home/config/JetBrains/"$PRODUCT_NAME"/options
 
@@ -158,6 +174,11 @@ export XDG_CONFIG_HOME="$tmp_home/config"
 export XDG_CACHE_HOME="$tmp_home/cache"
 export XDG_DATA_HOME="$tmp_home/data"
 
+
+# pre-install the plugin
+unzip "$ide_server_path"/plugin.zip -d "$HOME"/.local/share/JetBrains/"$PRODUCT_NAME"
+
+
 "$ide_server_path"/bin/remote-dev-server.orig.sh $@\
   -Djna.library.path="$ide_server_path"/plugins/remote-dev-server/selfcontained/lib
 SCRIPT
@@ -165,4 +186,3 @@ SCRIPT
     "$ide_server_path"/bin/remote-dev-server.sh run "$PROJECT_SOURCE"
 
 fi
-

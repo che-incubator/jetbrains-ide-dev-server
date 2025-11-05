@@ -1,2 +1,11 @@
 .DS_Store
 node_modules
+
+user-activity-tracker/.DS_Store
+user-activity-tracker/.gradle
+user-activity-tracker/.idea
+user-activity-tracker/.intellijPlatform/
+user-activity-tracker/.kotlin/
+user-activity-tracker/build/*
+!user-activity-tracker/build/distributions/
+!user-activity-tracker/build/distributions/user-activity-tracker-1.0-SNAPSHOT.zip
