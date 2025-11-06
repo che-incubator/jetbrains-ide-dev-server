@@ -16,6 +16,8 @@ FROM registry.access.redhat.com/ubi8/nodejs-20:1-72 as ubi8
 # FROM registry.access.redhat.com/ubi9/openjdk-21:latest as plugin-builder
 FROM gradle:9.1.0-jdk21 as plugin-builder
 
+# NOTE: the below lines are commented out until we figure out why the plugin build is failing in a container
+
 # # Copy the plugin sources
 # COPY /che-integration-plugin/ /che-integration-plugin/
 # WORKDIR /che-integration-plugin/
@@ -28,12 +30,12 @@ FROM gradle:9.1.0-jdk21 as plugin-builder
 
 # RUN cp build/distributions/che-integration-plugin-1.0-SNAPSHOT.zip /plugin.zip
 
-# For now, until the plugin build isn't adapted to a containerized environment and failed,
+# For now, until the plugin build isn't adapted to a containerized environment and fails,
 # copy the pre-built plugin.
 COPY che-integration-plugin/build/distributions/che-integration-plugin-1.0-SNAPSHOT.zip /plugin.zip
 
 
-# Use the latest image that provides the statically-build machine-exec binary (CGO_ENABLED=1)
+# Use the latest image that provides the statically-built machine-exec binary (CGO_ENABLED=1)
 FROM quay.io/eclipse/che-machine-exec:7.70.0 as machine-exec
 
 
