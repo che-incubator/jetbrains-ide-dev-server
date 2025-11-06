@@ -7,5 +7,5 @@ che-integration-plugin/.idea
 che-integration-plugin/.intellijPlatform/
 che-integration-plugin/.kotlin/
 che-integration-plugin/build/*
-che-integration-plugin/build/distributions/
+!che-integration-plugin/build/distributions/
 !che-integration-plugin/build/distributions/che-integration-plugin-1.0-SNAPSHOT.zip
