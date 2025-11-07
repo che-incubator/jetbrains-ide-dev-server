@@ -28,7 +28,7 @@ To test the changes:
 
 a. If you need to test the changes made to the `che-integration-plugin`, rebuild the plugin:
 ```bash
-cd che-integration-plugin && ./gradlew clean buildPlugin
+pushd che-integration-plugin && ./gradlew clean buildPlugin && popd
 ```
 
 b. Build the image and upload it to a registry (from the project root folder):
