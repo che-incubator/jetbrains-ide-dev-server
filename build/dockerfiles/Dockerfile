@@ -35,7 +35,7 @@ FROM gradle:9.1.0-jdk21 as plugin-builder
 COPY che-integration-plugin/build/distributions/che-integration-plugin-1.0-SNAPSHOT.zip /plugin.zip
 
 
-# Use the latest image that provides the statically-built machine-exec binary (CGO_ENABLED=1)
+# Use the latest image that provides the statically-built machine-exec binary (CGO_ENABLED=0)
 FROM quay.io/eclipse/che-machine-exec:7.70.0 as machine-exec
 
 
@@ -77,7 +77,7 @@ RUN mkdir /node-ubi9-ld_libs && cp -r /usr/lib64/libbrotli* /node-ubi9-ld_libs/
 # To make the solution backward compatible with the UBI8-based user containers.
 COPY --from=ubi8 /usr/bin/node /node-ubi8
 
-COPY --from=machine-exec --chown=0:0 /go/bin/che-machine-exec /machine-exec
+COPY --from=machine-exec --chown=0:0 /go/bin/che-machine-exec /machine-exec-bin/machine-exec-static
 COPY --from=plugin-builder --chown=0:0 /plugin.zip /plugin.zip
 
 # Switch to an unprivileged user.
