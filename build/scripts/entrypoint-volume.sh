@@ -111,9 +111,34 @@ else
   nohup env HOME=$tmp_home "$ide_server_path"/node index.js &
 fi
 
+
+# If the statically-linked machine-exec binary is provided, let's use it, by default.
+MACHINE_EXEC_STATIC_PATH="$ide_server_path/machine-exec-bin/machine-exec-static"
+if [ -f "$MACHINE_EXEC_STATIC_PATH" ]; then
+  echo "[INFO] The machine-exec statically-linked binary will be used"
+  ln -s "$MACHINE_EXEC_STATIC_PATH" "$ide_server_path"/machine-exec
+else
+  # If no statically-linked machine-exec binary provided,
+  # use the dynamically-linked one for a specific platform.
+  get_openssl_version
+  case "${openssl_version}" in
+    *"1"*)
+      echo "[INFO] The machine-exec dynamically-linked binary for UBI8 will be used"
+      ln -s "$ide_server_path"/machine-exec-bin/machine-exec-ubi8 "$ide_server_path"/machine-exec
+      ;;
+    *"3"*)
+      echo "[INFO] The machine-exec dynamically-linked binary for UBI9 will be used"
+      ln -s "$ide_server_path"/machine-exec-bin/machine-exec-ubi9 "$ide_server_path"/machine-exec
+      ;;
+    *)
+      echo "[WARNING] Unsupported OpenSSL major version. The machine-exec dynamically-linked binary for UBI9 will be used."
+      ln -s "$ide_server_path"/machine-exec-bin/machine-exec-ubi9 "$ide_server_path"/machine-exec
+      ;;
+    esac
+fi
 # Run the machine-exec server to stop a workspace by inactivity timeout
 export MACHINE_EXEC_PORT=3333
-nohup "$ide_server_path"/machine-exec --url "0.0.0.0:${MACHINE_EXEC_PORT}" &
+nohup "$ide_server_path"/machine-exec --url "127.0.0.1:${MACHINE_EXEC_PORT}" &
 
 
 # To run Rider.
