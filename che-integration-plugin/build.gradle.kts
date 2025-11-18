@@ -25,6 +25,23 @@ dependencies {
         // bundledPlugin("com.intellij.java")
     }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("io.kubernetes:client-java:25.0.0") {
+        // Exclude Jackson from being bundled - IDE already provides it
+        exclude(group = "com.fasterxml.jackson.core", module = "jackson-databind")
+        exclude(group = "com.fasterxml.jackson.core", module = "jackson-core")
+        exclude(group = "com.fasterxml.jackson.core", module = "jackson-annotations")
+    }
+    // Bundle only the Kotlin module classes, exclude Jackson core (already provided by IDE)    // IDE already provides Jackson core classes, we just need the Kotlin module
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.2") {
+        // Exclude Jackson core dependencies - use IDE's version at runtime
+        exclude(group = "com.fasterxml.jackson.core", module = "jackson-databind")
+        exclude(group = "com.fasterxml.jackson.core", module = "jackson-core")
+        exclude(group = "com.fasterxml.jackson.core", module = "jackson-annotations")
+    }
+    testImplementation("io.mockk:mockk:1.13.13")
+    testImplementation("org.assertj:assertj-core:3.27.3")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
 intellijPlatform {
@@ -44,6 +61,19 @@ tasks {
     withType<JavaCompile> {
         sourceCompatibility = "21"
         targetCompatibility = "21"
+    }
+
+    // Exclude from plugin JAR - IDE already provides them
+    // Keep the Kotlin module classes (com.fasterxml.jackson.module.kotlin)
+    jar {
+        exclude("com/fasterxml/jackson/core/**")
+        exclude("com/fasterxml/jackson/databind/**")
+        exclude("com/fasterxml/jackson/annotation/**")
+    }
+
+    // Use JUnit 5 for testing
+    test {
+        useJUnitPlatform()
     }
 }
 
