@@ -198,7 +198,7 @@ export XDG_DATA_HOME="$tmp_home/data"
 
 
 # pre-install the Che integration plugin
-cp -r "$ide_server_path"/ide-plugin/. "$HOME"/.local/share/JetBrains/"$PRODUCT_NAME"
+cp -r "$ide_server_path"/ide-plugin/. "$HOME"/data/JetBrains/"$PRODUCT_NAME"
 
 
 "$ide_server_path"/bin/remote-dev-server.orig.sh $@\
