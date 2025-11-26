@@ -79,6 +79,7 @@ COPY --from=ubi8 /usr/bin/node /node-ubi8
 
 COPY --from=machine-exec --chown=0:0 /go/bin/che-machine-exec /machine-exec-bin/machine-exec-static
 COPY --from=plugin-builder --chown=0:0 /plugin.zip /plugin.zip
+RUN unzip /plugin.zip -d /ide-plugin/ && rm /plugin.zip
 
 # Switch to an unprivileged user.
 USER 10001

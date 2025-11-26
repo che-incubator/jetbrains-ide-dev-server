@@ -159,7 +159,7 @@ if [ -w "$HOME" ]; then
     PRODUCT_NAME=$(grep -m1 dataDirectoryName "$ide_server_path"/product-info.json | cut -d'"' -f4)
     mkdir -p "$HOME"/.local/share/JetBrains/"$PRODUCT_NAME"
     # see https://www.jetbrains.com/help/idea/work-inside-remote-project.html#plugins
-    unzip "$ide_server_path"/plugin.zip -d "$HOME"/.local/share/JetBrains/"$PRODUCT_NAME"
+    cp -r "$ide_server_path"/ide-plugin/. "$HOME"/.local/share/JetBrains/"$PRODUCT_NAME"
 
     ./remote-dev-server.sh run "$PROJECT_SOURCE"
 else
@@ -198,7 +198,7 @@ export XDG_DATA_HOME="$tmp_home/data"
 
 
 # pre-install the Che integration plugin
-unzip "$ide_server_path"/plugin.zip -d "$HOME"/.local/share/JetBrains/"$PRODUCT_NAME"
+cp -r "$ide_server_path"/ide-plugin/. "$HOME"/.local/share/JetBrains/"$PRODUCT_NAME"
 
 
 "$ide_server_path"/bin/remote-dev-server.orig.sh $@\
