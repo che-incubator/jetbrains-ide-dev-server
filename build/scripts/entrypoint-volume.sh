@@ -112,14 +112,16 @@ else
 fi
 
 
-# If the statically-linked machine-exec binary is provided, let's use it, by default.
-MACHINE_EXEC_STATIC_PATH="$ide_server_path/machine-exec-bin/machine-exec-static"
-if [ -f "$MACHINE_EXEC_STATIC_PATH" ]; then
+machine_exec_dir="$ide_server_path/machine-exec-bin"
+machine_exec_binaries_count=$(find "$machine_exec_dir" -maxdepth 1 -type f | wc -l)
+# If only one machine-exec binary is provided (statically-linked one),
+# or it's usage requested explicitly, through the environment variable.
+if [ "$machine_exec_binaries_count" -eq 1 ] || [ "$MACHINE_EXEC_MODE" = "static" ]; then
   echo "[INFO] The machine-exec statically-linked binary will be used"
-  ln -s "$MACHINE_EXEC_STATIC_PATH" "$ide_server_path"/machine-exec
+  ln -s "$machine_exec_dir/machine-exec-static" "$ide_server_path"/machine-exec
 else
-  # If no statically-linked machine-exec binary provided,
-  # use the dynamically-linked one for a specific platform.
+  # If multiple machine-exec binaries are provided,
+  # select the appropriate one depending on the platform.
   get_openssl_version
   case "${openssl_version}" in
     *"1"*)
@@ -136,8 +138,9 @@ else
       ;;
     esac
 fi
+
 # Run the machine-exec server to stop a workspace by inactivity timeout
-export MACHINE_EXEC_PORT=3333
+export MACHINE_EXEC_PORT=3333 # expose the port for IDE plugin
 nohup "$ide_server_path"/machine-exec --url "127.0.0.1:${MACHINE_EXEC_PORT}" &
 
 
