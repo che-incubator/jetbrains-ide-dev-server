@@ -113,7 +113,7 @@ fi
 
 
 machine_exec_dir="$ide_server_path/machine-exec-bin"
-machine_exec_binaries_count=$(find "$machine_exec_dir" -maxdepth 1 -type f | wc -l)
+machine_exec_binaries_count=$(ls -p "$machine_exec_dir" | grep -v / | wc -l)
 # If only one machine-exec binary is provided (statically-linked one),
 # or it's usage requested explicitly, through the environment variable.
 if [ "$machine_exec_binaries_count" -eq 1 ] || [ "$MACHINE_EXEC_MODE" = "static" ]; then
