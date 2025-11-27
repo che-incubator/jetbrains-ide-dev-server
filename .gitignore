@@ -1,2 +1,11 @@
 .DS_Store
 node_modules
+
+che-integration-plugin/.DS_Store
+che-integration-plugin/.gradle
+che-integration-plugin/.idea
+che-integration-plugin/.intellijPlatform/
+che-integration-plugin/.kotlin/
+che-integration-plugin/build/*
+!che-integration-plugin/build/distributions/
+!che-integration-plugin/build/distributions/che-integration-plugin-1.0-SNAPSHOT.zip

@@ -79,5 +79,11 @@ cp /usr/bin/node "$ide_server_path"/node-ubi9
 cp /node-ubi8 "$ide_server_path"/node-ubi8
 cp -r /node-ubi9-ld_libs "$ide_server_path"/node-ubi9-ld_libs
 
+# Copy the folder with machine-exec binaries compatible with UBI8/9
+cp -r /machine-exec-bin "$ide_server_path"/machine-exec-bin
+
+# Copy the plugin that communicates with the machine-exec server
+cp -r /ide-plugin "$ide_server_path"/ide-plugin
+
 echo "Volume content:"
 ls -la "$ide_server_path"
