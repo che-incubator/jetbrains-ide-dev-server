@@ -14,7 +14,7 @@ import chokidar from 'chokidar';
 import fs from 'fs';
 import path from 'path';
 import express from 'express';
-import ideInfo from '../product-info.json';
+import ideInfo from '../product-info.json' assert { type: 'json' };
 
 // path to the IDE server's logs
 const logsFile = '../std.out';
