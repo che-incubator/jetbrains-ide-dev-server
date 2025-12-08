@@ -25,6 +25,7 @@ dependencies {
         // bundledPlugin("com.intellij.java")
     }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("io.kubernetes:client-java:25.0.0")
 }
 
 intellijPlatform {

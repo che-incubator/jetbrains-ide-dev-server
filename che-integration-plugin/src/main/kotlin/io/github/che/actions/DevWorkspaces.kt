@@ -17,7 +17,6 @@ import io.kubernetes.client.custom.V1Patch
 import io.kubernetes.client.openapi.ApiClient
 import io.kubernetes.client.openapi.ApiException
 import io.kubernetes.client.openapi.apis.CustomObjectsApi
-import io.kubernetes.client.util.PatchUtils
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.slf4j.LoggerFactory
@@ -109,27 +108,22 @@ class DevWorkspaces(apiClient: ApiClient) {
             }
             val v1patch = V1Patch(patchJson)
 
-            PatchUtils.patch(
-                DevWorkspace::class.java,
-                {
-                    customApi.patchNamespacedCustomObjectCall(
-                        "workspace.devfile.io",
-                        "v1alpha2",
-                        namespace,
-                        "devworkspaces",
-                        name,
-                        v1patch,
-                        null, // pretty
-                        null, // dryRun
-                        null, // fieldManager
-                        null  // fieldValidation
-                    )
-                },
-                V1Patch.PATCH_FORMAT_JSON_PATCH,
-                customApi.apiClient
+            // Directly call the public patch method on CustomObjectsApi.
+            // This variant works with the common client-java signatures:
+            // patchNamespacedCustomObject(group, version, namespace, plural, name, body, pretty, dryRun, fieldManager)
+            customApi.patchNamespacedCustomObject(
+                "workspace.devfile.io",
+                "v1alpha2",
+                namespace,
+                "devworkspaces",
+                name,
+                v1patch
+                // pretty
+                // dryRun
+                // fieldManager
             )
         } catch (e: ApiException) {
-            // rethrow to keep existing behavior
+            // preserve existing behavior
             throw e
         } catch (t: Throwable) {
             thisLogger().error("Unexpected error while patching DevWorkspace $namespace/$name", t)
