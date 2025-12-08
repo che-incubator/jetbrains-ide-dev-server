@@ -10,11 +10,11 @@
  *   Red Hat, Inc. - initial API and implementation
  */
 
-const chokidar = require('chokidar');
-const fs = require("fs");
-const path = require('path');
-const express = require('express');
-const ideInfo = require('../product-info.json');
+import chokidar from 'chokidar';
+import fs from 'fs';
+import path from 'path';
+import express from 'express';
+import ideInfo from '../product-info.json';
 
 // path to the IDE server's logs
 const logsFile = '../std.out';
