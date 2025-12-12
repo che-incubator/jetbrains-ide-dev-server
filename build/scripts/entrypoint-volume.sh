@@ -108,7 +108,7 @@ else
     ;;
   esac
 
-  nohup env HOME=$tmp_home "$ide_server_path"/node index.js &
+  nohup env HOME=$tmp_home "$ide_server_path"/node index.mjs &
 fi
 
 
