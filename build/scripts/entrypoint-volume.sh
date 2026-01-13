@@ -16,6 +16,8 @@
 
 # mounted volume path
 ide_server_path="/idea-server"
+# JetBrains plugins path
+jetbrains_plugins_path="$ide_server_path/user-plugins"
 # temporary home directory
 tmp_home="/tmp/user"
 
@@ -169,19 +171,13 @@ start_machine_exec() {
 # IDE Server
 # ============================================================================
 
-install_che_plugin() {
-  local home_dir="$1"
-  local data_subdir="$2"
-
-  PRODUCT_NAME=$(grep -m1 dataDirectoryName "$ide_server_path"/product-info.json | cut -d'"' -f4)
-  mkdir -p "$home_dir/$data_subdir/JetBrains/$PRODUCT_NAME"
-  # see https://www.jetbrains.com/help/idea/work-inside-remote-project.html#plugins
-  cp -r "$ide_server_path"/ide-plugin/. "$home_dir/$data_subdir/JetBrains/$PRODUCT_NAME"
-}
-
 start_ide_with_writable_home() {
-  install_che_plugin "$HOME" ".local/share"
-  ./remote-dev-server.sh run "$PROJECT_SOURCE"
+  PRODUCT_NAME=$(grep -m1 dataDirectoryName "$ide_server_path"/product-info.json | cut -d'"' -f4)
+  plugins_path="$jetbrains_plugins_path/$PRODUCT_NAME"
+  mkdir -p "$plugins_path"
+  # see https://www.jetbrains.com/help/idea/work-inside-remote-project.html#plugins
+  cp -r "$ide_server_path"/ide-plugin/. "$plugins_path"
+  ./remote-dev-server.sh run "$PROJECT_SOURCE" -Didea.plugins.path="$plugins_path"
 }
 
 create_wrapper_script() {
@@ -191,11 +187,11 @@ create_wrapper_script() {
 readonly tmp_home="/tmp/user"
 readonly ide_server_path=/idea-server/
 readonly PRODUCT_NAME=$(grep -m1 dataDirectoryName "$ide_server_path"/product-info.json | cut -d'"' -f4)
+readonly plugins_path="$ide_server_path/user-plugins/$PRODUCT_NAME"
 mkdir -p $tmp_home/.config \
   $tmp_home/.cache \
-  $tmp_home/.local/share/JetBrains/"$PRODUCT_NAME" \
-  $tmp_home/data/JetBrains/"$PRODUCT_NAME" \
-  $tmp_home/config/JetBrains/"$PRODUCT_NAME"/options
+  $tmp_home/config/JetBrains/"$PRODUCT_NAME"/options \
+  "$plugins_path"
 
 CONFIG_TRUSTED_PATHS="$tmp_home/config/JetBrains/$PRODUCT_NAME/options/trusted-paths.xml"
 if [ ! -f "$CONFIG_TRUSTED_PATHS" ]; then
@@ -213,17 +209,16 @@ EOF
 fi
 
 export HOME="$tmp_home"
-export XDG_CONFIG_HOME="$tmp_home/config"
-export XDG_CACHE_HOME="$tmp_home/cache"
-export XDG_DATA_HOME="$tmp_home/data"
-
+export XDG_CONFIG_HOME="$tmp_home/.config"
+export XDG_CACHE_HOME="$tmp_home/.cache"
+export XDG_DATA_HOME="$tmp_home/.data"
 
 # pre-install the Che integration plugin
-cp -r "$ide_server_path"/ide-plugin/. "$HOME"/data/JetBrains/"$PRODUCT_NAME"
-
+cp -r "$ide_server_path"/ide-plugin/. "$plugins_path"
 
 "$ide_server_path"/bin/remote-dev-server.orig.sh $@\
-  -Djna.library.path="$ide_server_path"/plugins/remote-dev-server/selfcontained/lib
+  -Djna.library.path="$ide_server_path"/plugins/remote-dev-server/selfcontained/lib \
+  -Didea.plugins.path="$plugins_path"
 SCRIPT
 }
 
