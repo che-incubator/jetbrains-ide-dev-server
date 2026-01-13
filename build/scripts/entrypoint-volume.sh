@@ -14,23 +14,28 @@
 # Being called as a post-start command, the script runs the IDE
 # from the shared volume which should be mounted to a folder in a dev container.
 
-# Register the current (arbitrary) user.
-if ! whoami &> /dev/null; then
-  if [ -w /etc/passwd ]; then
-    echo "Registering the current (arbitrary) user."
-    echo "${USER_NAME:-user}:x:$(id -u):0:${USER_NAME:-user} user:${HOME}:/bin/bash" >> /etc/passwd
-    echo "${USER_NAME:-user}:x:$(id -u):" >> /etc/group
-  fi
-fi
-
 # mounted volume path
 ide_server_path="/idea-server"
 # temporary home directory
 tmp_home="/tmp/user"
 
-echo "Volume content:"
-ls -la "$ide_server_path"
+# ============================================================================
+# User Registration
+# ============================================================================
 
+register_user() {
+  if ! whoami &> /dev/null; then
+    if [ -w /etc/passwd ]; then
+      echo "Registering the current (arbitrary) user."
+      echo "${USER_NAME:-user}:x:$(id -u):0:${USER_NAME:-user} user:${HOME}:/bin/bash" >> /etc/passwd
+      echo "${USER_NAME:-user}:x:$(id -u):" >> /etc/group
+    fi
+  fi
+}
+
+# ============================================================================
+# OpenSSL/LibSSL Version Detection
+# ============================================================================
 
 libssl_version=""
 get_libssl_version() {
@@ -79,15 +84,22 @@ get_openssl_version() {
   fi
 }
 
-# Start the app that checks the IDE server status.
-# This will be workspace's 'main' endpoint.
-cd "$ide_server_path"/status-app || exit
-if command -v npm &> /dev/null; then
-  # Node.js installed in a user's container
-  nohup env HOME=$tmp_home npm start &
-else
-  # no Node.js installed,
-  # use the one that editor-injector provides
+# ============================================================================
+# Status App
+# ============================================================================
+
+start_status_app() {
+  cd "$ide_server_path"/status-app || exit
+  if command -v npm &> /dev/null; then
+    # Node.js installed in a user's container
+    nohup env HOME=$tmp_home npm start &
+  else
+    # no Node.js installed, use the one that editor-injector provides
+    start_status_app_with_bundled_node
+  fi
+}
+
+start_status_app_with_bundled_node() {
   get_openssl_version
   echo "[INFO] OpenSSL major version is: $openssl_version."
 
@@ -97,7 +109,6 @@ else
     ;;
   *"3"*)
     mv "$ide_server_path"/node-ubi9 "$ide_server_path"/node
-
     # When registry.access.redhat.com/ubi9 is used as a user container,
     # there no libbrotli in the image. We provide it additionally.
     export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$ide_server_path/node-ubi9-ld_libs"
@@ -109,19 +120,29 @@ else
   esac
 
   nohup env HOME=$tmp_home "$ide_server_path"/node index.mjs &
-fi
+}
 
+# ============================================================================
+# Machine Exec
+# ============================================================================
 
-machine_exec_dir="$ide_server_path/machine-exec-bin"
-machine_exec_binaries_count=$(ls -p "$machine_exec_dir" | grep -v / | wc -l)
-# If only one machine-exec binary is provided (statically-linked one),
-# or it's usage requested explicitly, through the environment variable.
-if [ "$machine_exec_binaries_count" -eq 1 ] || [ "$MACHINE_EXEC_MODE" = "static" ]; then
-  echo "[INFO] The machine-exec statically-linked binary will be used"
-  ln -s "$machine_exec_dir/machine-exec-static" "$ide_server_path"/machine-exec
-else
-  # If multiple machine-exec binaries are provided,
-  # select the appropriate one depending on the platform.
+setup_machine_exec_binary() {
+  machine_exec_dir="$ide_server_path/machine-exec-bin"
+  machine_exec_binaries_count=$(ls -p "$machine_exec_dir" | grep -v / | wc -l)
+
+  # If only one machine-exec binary is provided (statically-linked one),
+  # or it's usage requested explicitly, through the environment variable.
+  if [ "$machine_exec_binaries_count" -eq 1 ] || [ "$MACHINE_EXEC_MODE" = "static" ]; then
+    echo "[INFO] The machine-exec statically-linked binary will be used"
+    ln -s "$machine_exec_dir/machine-exec-static" "$ide_server_path"/machine-exec
+  else
+    # If multiple machine-exec binaries are provided,
+    # select the appropriate one depending on the platform.
+    setup_machine_exec_dynamic_binary
+  fi
+}
+
+setup_machine_exec_dynamic_binary() {
   get_openssl_version
   case "${openssl_version}" in
     *"1"*)
@@ -136,37 +157,37 @@ else
       echo "[WARNING] Unsupported OpenSSL major version. The machine-exec dynamically-linked binary for UBI9 will be used."
       ln -s "$ide_server_path"/machine-exec-bin/machine-exec-ubi9 "$ide_server_path"/machine-exec
       ;;
-    esac
-fi
+  esac
+}
 
-# Run the machine-exec server to stop a workspace by inactivity timeout
-export MACHINE_EXEC_PORT=3333 # expose the port for IDE plugin
-nohup "$ide_server_path"/machine-exec --url "127.0.0.1:${MACHINE_EXEC_PORT}" &
+start_machine_exec() {
+  export MACHINE_EXEC_PORT=3333 # expose the port for IDE plugin
+  nohup "$ide_server_path"/machine-exec --url "127.0.0.1:${MACHINE_EXEC_PORT}" &
+}
 
+# ============================================================================
+# IDE Server
+# ============================================================================
 
-# To run Rider.
-# See the details in che#23228
-export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+install_che_plugin() {
+  local home_dir="$1"
+  local data_subdir="$2"
 
-cd "$ide_server_path"/bin || exit
+  PRODUCT_NAME=$(grep -m1 dataDirectoryName "$ide_server_path"/product-info.json | cut -d'"' -f4)
+  mkdir -p "$home_dir/$data_subdir/JetBrains/$PRODUCT_NAME"
+  # see https://www.jetbrains.com/help/idea/work-inside-remote-project.html#plugins
+  cp -r "$ide_server_path"/ide-plugin/. "$home_dir/$data_subdir/JetBrains/$PRODUCT_NAME"
+}
 
-# remote-dev-server.sh writes to several sub-folders of HOME (.config, .cache, etc.)
-# When registry.access.redhat.com/ubi9 is used for running a user container, HOME=/ which is read-only.
-# In this case, we point remote-dev-server.sh to a writable HOME.
+start_ide_with_writable_home() {
+  install_che_plugin "$HOME" ".local/share"
+  ./remote-dev-server.sh run "$PROJECT_SOURCE"
+}
 
-if [ -w "$HOME" ]; then
-    # pre-install the Che integration plugin
-    PRODUCT_NAME=$(grep -m1 dataDirectoryName "$ide_server_path"/product-info.json | cut -d'"' -f4)
-    mkdir -p "$HOME"/.local/share/JetBrains/"$PRODUCT_NAME"
-    # see https://www.jetbrains.com/help/idea/work-inside-remote-project.html#plugins
-    cp -r "$ide_server_path"/ide-plugin/. "$HOME"/.local/share/JetBrains/"$PRODUCT_NAME"
-
-    ./remote-dev-server.sh run "$PROJECT_SOURCE"
-else
-    echo "No write permission to HOME=$HOME. IDE dev server will be launched with HOME=$tmp_home"
-    cp "$ide_server_path"/bin/remote-dev-server.sh "$ide_server_path"/bin/remote-dev-server.orig.sh
-    chmod +x "$ide_server_path"/bin/remote-dev-server.orig.sh
-    cat <<'SCRIPT' > "$ide_server_path"/bin/remote-dev-server.sh
+create_wrapper_script() {
+  cp "$ide_server_path"/bin/remote-dev-server.sh "$ide_server_path"/bin/remote-dev-server.orig.sh
+  chmod +x "$ide_server_path"/bin/remote-dev-server.orig.sh
+  cat <<'SCRIPT' > "$ide_server_path"/bin/remote-dev-server.sh
 readonly tmp_home="/tmp/user"
 readonly ide_server_path=/idea-server/
 readonly PRODUCT_NAME=$(grep -m1 dataDirectoryName "$ide_server_path"/product-info.json | cut -d'"' -f4)
@@ -204,7 +225,44 @@ cp -r "$ide_server_path"/ide-plugin/. "$HOME"/data/JetBrains/"$PRODUCT_NAME"
 "$ide_server_path"/bin/remote-dev-server.orig.sh $@\
   -Djna.library.path="$ide_server_path"/plugins/remote-dev-server/selfcontained/lib
 SCRIPT
+}
 
-    "$ide_server_path"/bin/remote-dev-server.sh run "$PROJECT_SOURCE"
+start_ide_with_readonly_home() {
+  echo "No write permission to HOME=$HOME. IDE dev server will be launched with HOME=$tmp_home"
+  create_wrapper_script
+  "$ide_server_path"/bin/remote-dev-server.sh run "$PROJECT_SOURCE"
+}
 
-fi
+start_ide_server() {
+  # To run Rider. See the details in che#23228
+  export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
+
+  cd "$ide_server_path"/bin || exit
+
+  # remote-dev-server.sh writes to several sub-folders of HOME (.config, .cache, etc.)
+  # When registry.access.redhat.com/ubi9 is used for running a user container, HOME=/ which is read-only.
+  # In this case, we point remote-dev-server.sh to a writable HOME.
+  if [ -w "$HOME" ]; then
+    start_ide_with_writable_home
+  else
+    start_ide_with_readonly_home
+  fi
+}
+
+# ============================================================================
+# Main
+# ============================================================================
+
+main() {
+  register_user
+
+  echo "Volume content:"
+  ls -la "$ide_server_path"
+
+  start_status_app
+  setup_machine_exec_binary
+  start_machine_exec
+  start_ide_server
+}
+
+main
