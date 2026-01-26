@@ -185,8 +185,9 @@ create_wrapper_script() {
   cat <<SCRIPT > "$ide_server_path"/bin/remote-dev-server.sh
 readonly tmp_home="/tmp/user"
 readonly ide_server_path=/idea-server/
-readonly product_name="$product_name"
 readonly plugins_path="$plugins_path"
+readonly product_name="$product_name"
+
 mkdir -p \$tmp_home/.config \
   \$tmp_home/.cache \
   \$tmp_home/config/JetBrains/"\$product_name"/options \
@@ -231,7 +232,6 @@ start_ide_server() {
   export DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=1
 
   cd "$ide_server_path"/bin || exit
-
 
   product_name=$(grep -m1 dataDirectoryName "$ide_server_path"/product-info.json | cut -d'"' -f4)
   plugins_path="$jetbrains_plugins_path/$product_name"

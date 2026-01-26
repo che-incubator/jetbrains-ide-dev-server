@@ -83,7 +83,8 @@ cp -r /node-ubi9-ld_libs "$ide_server_path"/node-ubi9-ld_libs
 cp -r /machine-exec-bin "$ide_server_path"/machine-exec-bin
 
 # Copy the plugin that communicates with the machine-exec server
-cp -r /ide-plugin "$ide_server_path"/ide-plugin
+mkdir -p "$ide_server_path/ide-plugin" && \
+cp -a /ide-plugin/. "$ide_server_path/ide-plugin/"
 
 echo "Volume content:"
 ls -la "$ide_server_path"
