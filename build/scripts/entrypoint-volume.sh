@@ -172,35 +172,34 @@ start_machine_exec() {
 # ============================================================================
 
 start_ide_with_writable_home() {
-  PRODUCT_NAME=$(grep -m1 dataDirectoryName "$ide_server_path"/product-info.json | cut -d'"' -f4)
-  plugins_path="$jetbrains_plugins_path/$PRODUCT_NAME"
-  mkdir -p "$plugins_path"
-  # see https://www.jetbrains.com/help/idea/work-inside-remote-project.html#plugins
-  cp -r "$ide_server_path"/ide-plugin/. "$plugins_path"
+  plugins_path="$1"
+  echo "Launching IDE dev server with HOME=$HOME"
   ./remote-dev-server.sh run "$PROJECT_SOURCE" -Didea.plugins.path="$plugins_path"
 }
 
 create_wrapper_script() {
+  product_name="$1"
+  plugins_path="$2"
   cp "$ide_server_path"/bin/remote-dev-server.sh "$ide_server_path"/bin/remote-dev-server.orig.sh
   chmod +x "$ide_server_path"/bin/remote-dev-server.orig.sh
-  cat <<'SCRIPT' > "$ide_server_path"/bin/remote-dev-server.sh
+  cat <<SCRIPT > "$ide_server_path"/bin/remote-dev-server.sh
 readonly tmp_home="/tmp/user"
 readonly ide_server_path=/idea-server/
-readonly PRODUCT_NAME=$(grep -m1 dataDirectoryName "$ide_server_path"/product-info.json | cut -d'"' -f4)
-readonly plugins_path="$ide_server_path/user-plugins/$PRODUCT_NAME"
-mkdir -p $tmp_home/.config \
-  $tmp_home/.cache \
-  $tmp_home/config/JetBrains/"$PRODUCT_NAME"/options \
-  "$plugins_path"
+readonly product_name="$product_name"
+readonly plugins_path="$plugins_path"
+mkdir -p \$tmp_home/.config \
+  \$tmp_home/.cache \
+  \$tmp_home/config/JetBrains/"\$product_name"/options \
+  "\$plugins_path"
 
-CONFIG_TRUSTED_PATHS="$tmp_home/config/JetBrains/$PRODUCT_NAME/options/trusted-paths.xml"
-if [ ! -f "$CONFIG_TRUSTED_PATHS" ]; then
-  cat > "$CONFIG_TRUSTED_PATHS" <<EOF
+config_trusted_paths="\$tmp_home/config/JetBrains/\$product_name/options/trusted-paths.xml"
+if [ ! -f "\$config_trusted_paths" ]; then
+  cat > "\$config_trusted_paths" <<EOF
 <application>
   <component name="Trusted.Paths.Settings">
     <option name="TRUSTED_PATHS">
       <list>
-        <option value="$PROJECT_SOURCE" />
+        <option value="\$PROJECT_SOURCE" />
       </list>
     </option>
   </component>
@@ -208,23 +207,22 @@ if [ ! -f "$CONFIG_TRUSTED_PATHS" ]; then
 EOF
 fi
 
-export HOME="$tmp_home"
-export XDG_CONFIG_HOME="$tmp_home/.config"
-export XDG_CACHE_HOME="$tmp_home/.cache"
-export XDG_DATA_HOME="$tmp_home/.data"
+export HOME="\$tmp_home"
+export XDG_CONFIG_HOME="\$tmp_home/.config"
+export XDG_CACHE_HOME="\$tmp_home/.cache"
+export XDG_DATA_HOME="\$tmp_home/.data"
 
-# pre-install the Che integration plugin
-cp -r "$ide_server_path"/ide-plugin/. "$plugins_path"
-
-"$ide_server_path"/bin/remote-dev-server.orig.sh $@\
-  -Djna.library.path="$ide_server_path"/plugins/remote-dev-server/selfcontained/lib \
-  -Didea.plugins.path="$plugins_path"
+"\$ide_server_path"/bin/remote-dev-server.orig.sh \$@\
+  -Djna.library.path="\$ide_server_path"/plugins/remote-dev-server/selfcontained/lib \
+  -Didea.plugins.path="\$plugins_path"
 SCRIPT
 }
 
 start_ide_with_readonly_home() {
-  echo "No write permission to HOME=$HOME. IDE dev server will be launched with HOME=$tmp_home"
-  create_wrapper_script
+  product_name="$1"
+  plugins_path="$2"
+  echo "No write permission to HOME=$HOME. Launching IDE dev server with HOME=$tmp_home"
+  create_wrapper_script "$product_name" "$plugins_path"
   "$ide_server_path"/bin/remote-dev-server.sh run "$PROJECT_SOURCE"
 }
 
@@ -234,13 +232,22 @@ start_ide_server() {
 
   cd "$ide_server_path"/bin || exit
 
+
+  product_name=$(grep -m1 dataDirectoryName "$ide_server_path"/product-info.json | cut -d'"' -f4)
+  plugins_path="$jetbrains_plugins_path/$product_name"
+
+  # Pre-install the Che integration plugin
+  mkdir -p "$plugins_path"
+  # see https://www.jetbrains.com/help/idea/work-inside-remote-project.html#plugins
+  cp -r "$ide_server_path"/ide-plugin/. "$plugins_path"
+
   # remote-dev-server.sh writes to several sub-folders of HOME (.config, .cache, etc.)
   # When registry.access.redhat.com/ubi9 is used for running a user container, HOME=/ which is read-only.
   # In this case, we point remote-dev-server.sh to a writable HOME.
   if [ -w "$HOME" ]; then
-    start_ide_with_writable_home
+    start_ide_with_writable_home "$plugins_path"
   else
-    start_ide_with_readonly_home
+    start_ide_with_readonly_home "$product_name" "$plugins_path"
   fi
 }
 
