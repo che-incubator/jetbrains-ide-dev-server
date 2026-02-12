@@ -72,7 +72,7 @@ RUN npm install
 
 # When registry.access.redhat.com/ubi9 is used as a user container,
 # there no libbrotli in the image. We provide it additionally to the user's container.
-RUN mkdir /node-ubi9-ld_libs && cp -r /usr/lib64/libbrotli* /node-ubi9-ld_libs/
+RUN mkdir /node-ubi9-ld_libs && cp -r /usr/lib64/libbrotli* /usr/lib64/libcrypto.so.3* /node-ubi9-ld_libs/
 
 # To make the solution backward compatible with the UBI8-based user containers.
 COPY --from=ubi8 /usr/bin/node /node-ubi8
