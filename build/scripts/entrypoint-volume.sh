@@ -92,18 +92,11 @@ get_openssl_version() {
 
 start_status_app() {
   cd "$ide_server_path"/status-app || exit
-  if command -v npm &> /dev/null; then
-    # Node.js installed in a user's container
-    nohup env HOME=$tmp_home npm start &
-  else
-    # no Node.js installed, use the one that editor-injector provides
-    start_status_app_with_bundled_node
-  fi
-}
-
-start_status_app_with_bundled_node() {
   get_openssl_version
   echo "[INFO] OpenSSL major version is: $openssl_version."
+
+  local custom_ld_path=""
+  local custom_ossl_mods=""
 
   case "${openssl_version}" in
   *"1"*)
@@ -111,17 +104,22 @@ start_status_app_with_bundled_node() {
     ;;
   *"3"*)
     mv "$ide_server_path"/node-ubi9 "$ide_server_path"/node
-    # When registry.access.redhat.com/ubi9 is used as a user container,
-    # there no libbrotli in the image. We provide it additionally.
-    export LD_LIBRARY_PATH="$LD_LIBRARY_PATH:$ide_server_path/node-ubi9-ld_libs"
+    custom_ld_path="$ide_server_path/node-ubi9-ld_libs${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    custom_ossl_mods="$ide_server_path/node-ubi9-ld_libs/ossl-modules"
     ;;
   *)
     echo "[WARNING] Unsupported OpenSSL major version. Node.js from UBI9 will be used."
     mv "$ide_server_path"/node-ubi9 "$ide_server_path"/node
+    custom_ld_path="$ide_server_path/node-ubi9-ld_libs${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    custom_ossl_mods="$ide_server_path/node-ubi9-ld_libs/ossl-modules"
     ;;
   esac
 
-  nohup env HOME=$tmp_home "$ide_server_path"/node index.mjs &
+  nohup env \
+    HOME="$tmp_home" \
+    LD_LIBRARY_PATH="${custom_ld_path:-$LD_LIBRARY_PATH}" \
+    OPENSSL_MODULES="$custom_ossl_mods" \
+    "$ide_server_path/node" index.mjs &
 }
 
 # ============================================================================
