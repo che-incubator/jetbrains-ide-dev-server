@@ -10,11 +10,11 @@
 
 # The image to get the Node.js binary to support running an IDE in a UBI8-based user container.
 # https://registry.access.redhat.com/ubi8/nodejs-20
-FROM registry.access.redhat.com/ubi8/nodejs-20:1-72 as ubi8
+FROM registry.access.redhat.com/ubi8/nodejs-20:1-72 AS ubi8
 
 
 # FROM registry.access.redhat.com/ubi9/openjdk-21:latest as plugin-builder
-FROM gradle:9.1.0-jdk21 as plugin-builder
+FROM gradle:9.1.0-jdk21 AS plugin-builder
 
 # NOTE: the below lines are commented out until we figure out why the plugin build is failing in a container
 
@@ -36,7 +36,7 @@ COPY che-integration-plugin/build/distributions/che-integration-plugin-1.0-SNAPS
 
 
 # Use the latest image that provides the statically-built machine-exec binary (CGO_ENABLED=0)
-FROM quay.io/eclipse/che-machine-exec:7.70.0 as machine-exec
+FROM quay.io/eclipse/che-machine-exec:7.70.0 AS machine-exec
 
 
 # Base image tag updater line.
@@ -72,7 +72,14 @@ RUN npm install
 
 # When registry.access.redhat.com/ubi9 is used as a user container,
 # there no libbrotli in the image. We provide it additionally to the user's container.
-RUN mkdir /node-ubi9-ld_libs && cp -r /usr/lib64/libbrotli* /usr/lib64/libcrypto.so.3* /node-ubi9-ld_libs/
+RUN mkdir /node-ubi9-ld_libs &&  \
+    cp -a  \
+      /usr/lib64/libbrotli*  \
+      /usr/lib64/libssl.so.3* \
+      /usr/lib64/libcrypto.so.3* \
+      /usr/lib64/libz.so.1* \
+      /usr/lib64/ossl-modules \
+      /node-ubi9-ld_libs/
 
 # To make the solution backward compatible with the UBI8-based user containers.
 COPY --from=ubi8 /usr/bin/node /node-ubi8
