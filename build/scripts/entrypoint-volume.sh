@@ -169,10 +169,132 @@ start_machine_exec() {
 # IDE Server
 # ============================================================================
 
+configure_multi_project_modules() {
+  projects_root="$1"
+
+  if [ ! -d "$projects_root" ]; then
+    echo "[WARNING] Projects root directory does not exist: $projects_root"
+    return
+  fi
+
+  echo "[INFO] Scanning for projects in $projects_root"
+
+  # Find all subdirectories (projects) in the project root
+  projects=$(find "$projects_root" -mindepth 1 -maxdepth 1 -type d -not -name ".*" 2>/dev/null)
+  project_count=$(echo "$projects" | grep -c '^' || echo 0)
+
+  echo "[INFO] Found $project_count project(s)"
+
+  if [ "$project_count" -eq 0 ]; then
+    echo "[WARNING] No projects found in $projects_root"
+    IDE_LAUNCH_DIR="$projects_root"
+    return
+  fi
+
+  # If only one project, use it directly instead of multi-project configuration
+  if [ "$project_count" -eq 1 ]; then
+    single_project=$(echo "$projects" | head -n 1)
+    echo "[INFO] Only one project found. Using single project mode: $single_project"
+    IDE_LAUNCH_DIR="$single_project"
+    return
+  fi
+
+  # Multiple projects found - create multi-project configuration
+  echo "[INFO] Multiple projects found. Creating multi-project configuration"
+  IDE_LAUNCH_DIR="$projects_root"
+
+  # Create .idea directory if it doesn't exist
+  mkdir -p "$projects_root/.idea"
+
+  # Generate modules.xml
+  # We create a minimal modules.xml that references module directories.
+  # Empty .iml placeholder files are created for each module, which IntelliJ IDEA
+  # will detect and regenerate with proper configuration based on the project type
+  # (Maven, Gradle, Go, Python, etc.) using its auto-import mechanisms.
+  modules_xml="$projects_root/.idea/modules.xml"
+  echo "[INFO] Creating modules configuration: $modules_xml"
+
+  cat > "$modules_xml" <<'EOF_HEADER'
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+EOF_HEADER
+
+  # Add each project as a module
+  for project_dir in $projects; do
+    project_name=$(basename "$project_dir")
+    echo "[INFO] Adding module: $project_name"
+
+    # IML file at the root of the module
+    iml_file="$project_dir/$project_name.iml"
+    # The path in modules.xml is relative to $PROJECT_DIR$ which is $projects_root
+    module_path_in_project="$project_name/$project_name.iml"
+
+    # Reference the module in modules.xml
+    echo "      <module fileurl=\"file://\$PROJECT_DIR\$/$module_path_in_project\" filepath=\"\$PROJECT_DIR\$/$module_path_in_project\" />" >> "$modules_xml"
+
+    # Create a minimal valid .iml file
+    # IntelliJ IDEA will auto-detect the project type.
+    # With this conventional .iml location, $MODULE_DIR$ will be the project's root directory.
+    cat > "$iml_file" <<EOF_IML
+<?xml version="1.0" encoding="UTF-8"?>
+<module version="4">
+  <component name="NewModuleRootManager">
+    <content url="file://\$MODULE_DIR$" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>
+EOF_IML
+
+  done
+  # Close modules.xml
+  cat >> "$modules_xml" <<'EOF_FOOTER'
+    </modules>
+  </component>
+</project>
+EOF_FOOTER
+
+  # Enable auto-import for Maven, Gradle, and other build systems
+  # This ensures IntelliJ automatically detects and imports projects
+  workspace_xml="$projects_root/.idea/workspace.xml"
+  if [ ! -f "$workspace_xml" ]; then
+    echo "[INFO] Creating workspace configuration with auto-import enabled"
+    cat > "$workspace_xml" <<'EOF_WORKSPACE'
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ExternalProjectsManager">
+    <system id="GRADLE">
+      <state>
+        <option name="enableAutoImport" value="true" />
+      </state>
+    </system>
+  </component>
+  <component name="MavenImportPreferences">
+    <option name="importingSettings">
+      <MavenImportingSettings>
+        <option name="importAutomatically" value="true" />
+      </MavenImportingSettings>
+    </option>
+  </component>
+  <component name="GoLibraries">
+    <option name="indexEntireGoPath" value="false" />
+  </component>
+</project>
+EOF_WORKSPACE
+  fi
+
+  echo "[INFO] Multi-project configuration complete. IntelliJ IDEA will auto-detect project types on startup."
+}
+
 start_ide_with_writable_home() {
   plugins_path="$1"
   echo "Launching IDE dev server with HOME=$HOME"
-  ./remote-dev-server.sh run "$PROJECT_SOURCE" -Didea.plugins.path="$plugins_path"
+  echo "[INFO] Opening project: $IDE_LAUNCH_DIR"
+  ./remote-dev-server.sh run "$IDE_LAUNCH_DIR" -Didea.plugins.path="$plugins_path"
 }
 
 create_wrapper_script() {
@@ -193,17 +315,29 @@ mkdir -p \$tmp_home/.config \
 
 config_trusted_paths="\$tmp_home/config/JetBrains/\$product_name/options/trusted-paths.xml"
 if [ ! -f "\$config_trusted_paths" ]; then
-  cat > "\$config_trusted_paths" <<EOF
+  cat > "\$config_trusted_paths" <<'EOF_TRUSTED_HEADER'
 <application>
   <component name="Trusted.Paths.Settings">
     <option name="TRUSTED_PATHS">
       <list>
         <option value="\$PROJECT_SOURCE" />
+EOF_TRUSTED_HEADER
+
+  # Add all project subdirectories to trusted paths
+  if [ -d "\$PROJECT_SOURCE" ]; then
+    for project_dir in "\$PROJECT_SOURCE"/*; do
+      if [ -d "\$project_dir" ]; then
+        echo "        <option value=\"\$project_dir\" />" >> "\$config_trusted_paths"
+      fi
+    done
+  fi
+
+  cat >> "\$config_trusted_paths" <<'EOF_TRUSTED_FOOTER'
       </list>
     </option>
   </component>
 </application>
-EOF
+EOF_TRUSTED_FOOTER
 fi
 
 export HOME="\$tmp_home"
@@ -221,8 +355,9 @@ start_ide_with_readonly_home() {
   product_name="$1"
   plugins_path="$2"
   echo "No write permission to HOME=$HOME. Launching IDE dev server with HOME=$tmp_home"
+  echo "[INFO] Opening project: $IDE_LAUNCH_DIR"
   create_wrapper_script "$product_name" "$plugins_path"
-  "$ide_server_path"/bin/remote-dev-server.sh run "$PROJECT_SOURCE"
+  "$ide_server_path"/bin/remote-dev-server.sh run "$IDE_LAUNCH_DIR"
 }
 
 start_ide_server() {
@@ -238,6 +373,11 @@ start_ide_server() {
   mkdir -p "$plugins_path"
   # see https://www.jetbrains.com/help/idea/work-inside-remote-project.html#plugins
   cp -r "$ide_server_path"/ide-plugin/. "$plugins_path"
+
+  # Configure multi-project modules and determine which directory to launch
+  # IDE_LAUNCH_DIR will be set by configure_multi_project_modules based on the number of projects
+  IDE_LAUNCH_DIR="$PROJECTS_ROOT"
+  configure_multi_project_modules "$PROJECTS_ROOT"
 
   # remote-dev-server.sh writes to several sub-folders of HOME (.config, .cache, etc.)
   # When registry.access.redhat.com/ubi9 is used for running a user container, HOME=/ which is read-only.
