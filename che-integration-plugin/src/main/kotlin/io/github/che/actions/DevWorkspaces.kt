@@ -19,26 +19,32 @@ import io.kubernetes.client.openapi.ApiException
 import io.kubernetes.client.openapi.apis.CustomObjectsApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.slf4j.LoggerFactory
 
 /**
- *  Helper for applying a local devfile (annotation) and restarting a DevWorkspace.
+ * Helper for applying a local devfile (annotation) and restarting a DevWorkspace.
+ * This class interacts with the Kubernetes API to manage DevWorkspace custom resources.
+ *
  * - CRD group: workspace.devfile.io
  * - version: v1alpha2
  * - resource: devworkspaces
  *
+ * @param apiClient The Kubernetes [ApiClient] used to communicate with the Kubernetes cluster.
  */
 class DevWorkspaces(apiClient: ApiClient) {
 
-    private val log = LoggerFactory.getLogger(DevWorkspaces::class.java)
     private val mapper = jacksonObjectMapper()
     private val customApi = CustomObjectsApi(apiClient)
 
     /**
-     * Apply the given devfile content to the DevWorkspace CR by patching
-     * metadata.annotations["che.eclipse.org/local-devfile"] = devfileContent
+     * Applies the given devfile content to the DevWorkspace custom resource by patching
+     * the `metadata.annotations["che.eclipse.org/local-devfile"]` field.
      *
-     * Runs on IO dispatcher (suspend).
+     * This operation runs on the IO dispatcher.
+     *
+     * @param namespace The namespace of the DevWorkspace.
+     * @param name The name of the DevWorkspace.
+     * @param devfileContent The content of the devfile to be applied as an annotation.
+     * @return `true` if the devfile was successfully applied, `false` otherwise.
      */
     suspend fun applyLocalDevfile(namespace: String, name: String, devfileContent: String): Boolean {
         return try {
@@ -56,20 +62,25 @@ class DevWorkspaces(apiClient: ApiClient) {
                 )
 
                 val body: Any = mapper.valueToTree(ops)
-                doPatch(namespace, name, body)
+                patch(namespace, name, body)
             }
             true
         } catch (t: Throwable) {
-            log.error("Failed to apply local devfile to $namespace/$name", t)
+            thisLogger().error("Failed to apply local devfile to $namespace/$name", t)
             false
         }
     }
 
     /**
-     * Restart the DevWorkspace by toggling spec. Started false -> true.
-     * Some clusters may react to a single replace; here we do false then true.
+     * Restarts the DevWorkspace by toggling its `spec.started` field from `false` to `true`.
+     * Some Kubernetes clusters may react to a single replace; this implementation explicitly
+     * sets `started` to `false` and then to `true` to ensure a restart.
      *
-     * Runs on IO dispatcher (suspend).
+     * This operation runs on the IO dispatcher.
+     *
+     * @param namespace The namespace of the DevWorkspace.
+     * @param name The name of the DevWorkspace.
+     * @return `true` if the workspace restart was successfully initiated, `false` otherwise.
      */
     suspend fun restartWorkspace(namespace: String, name: String): Boolean {
         return try {
@@ -79,7 +90,7 @@ class DevWorkspaces(apiClient: ApiClient) {
                     mapOf("op" to "replace", "path" to "/spec/started", "value" to false)
                 )
                 val stopBody: Any = mapper.valueToTree(stopOps)
-                doPatch(namespace, name, stopBody)
+                patch(namespace, name, stopBody)
 
                 // small delay might be needed in a real environment; callers can wait if required.
                 // set started = true
@@ -87,20 +98,30 @@ class DevWorkspaces(apiClient: ApiClient) {
                     mapOf("op" to "replace", "path" to "/spec/started", "value" to true)
                 )
                 val startBody: Any = mapper.valueToTree(startOps)
-                doPatch(namespace, name, startBody)
+                patch(namespace, name, startBody)
             }
             true
         } catch (t: Throwable) {
-            log.error("Failed to restart DevWorkspace $namespace/$name", t)
+            thisLogger().error("Failed to restart DevWorkspace $namespace/$name", t)
             false
         }
     }
 
-    /** Low-level JSON-PATCH call using PatchUtils (same pattern as Kubernetes examples). */
+    /**
+     * Performs a patch operation on a DevWorkspace custom resource.
+     *
+     * This private helper method serializes the provided `body` into a JSON patch
+     * and applies it to the specified DevWorkspace.
+     *
+     * @param namespace The namespace of the DevWorkspace.
+     * @param name The name of the DevWorkspace.
+     * @param body The patch body, which can be a String or any object that can be serialized to JSON.
+     * @throws ApiException if the Kubernetes API call fails.
+     * @throws Throwable for any other unexpected errors during the patching process.
+     */
     @Throws(ApiException::class)
-    private fun doPatch(namespace: String, name: String, body: Any) {
+    private fun patch(namespace: String, name: String, body: Any) {
         try {
-            // prepare JSON patch payload
             val mapper = jacksonObjectMapper()
             val patchJson = when (body) {
                 is String -> body
@@ -108,9 +129,6 @@ class DevWorkspaces(apiClient: ApiClient) {
             }
             val v1patch = V1Patch(patchJson)
 
-            // Directly call the public patch method on CustomObjectsApi.
-            // This variant works with the common client-java signatures:
-            // patchNamespacedCustomObject(group, version, namespace, plural, name, body, pretty, dryRun, fieldManager)
             customApi.patchNamespacedCustomObject(
                 "workspace.devfile.io",
                 "v1alpha2",
@@ -122,9 +140,6 @@ class DevWorkspaces(apiClient: ApiClient) {
                 // dryRun
                 // fieldManager
             )
-        } catch (e: ApiException) {
-            // preserve existing behavior
-            throw e
         } catch (t: Throwable) {
             thisLogger().error("Unexpected error while patching DevWorkspace $namespace/$name", t)
             throw t

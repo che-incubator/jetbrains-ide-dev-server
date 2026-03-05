@@ -13,9 +13,11 @@ package io.github.che.actions
 
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
-import com.intellij.openapi.vfs.LocalFileSystem
+import com.intellij.openapi.vfs.VirtualFile
 import io.kubernetes.client.openapi.ApiClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,36 +25,37 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.nio.charset.StandardCharsets
 
-class RestartWorkspaceAction : AnAction(
-    "Restart Workspace from Local Devfile",
-    "Apply local devfile.yaml to DevWorkspace and restart it",
-    null
-) {
+/**
+ * Action to restart the workspace from a local devfile.
+ *
+ * This action reads the local `devfile.yaml` or `.devfile.yaml` file, applies it to the
+ * current DevWorkspace, and then restarts the workspace.
+ */
+class RestartWorkspaceAction : AnAction() {
     override fun actionPerformed(e: AnActionEvent) {
         val project: Project = e.project ?: return
 
-        val baseDir = LocalFileSystem.getInstance().findFileByPath(project.basePath!!)
-
-        val devfileVirtual = baseDir?.findChild("devfile.yaml")
-            ?: baseDir?.findChild(".devfile.yaml")
-
-        if (devfileVirtual == null) {
-            Messages.showErrorDialog(project, "No devfile.yaml or .devfile.yaml found in project root.", "Restart Workspace")
+        val devfile = getDevfile(e)
+        if (devfile == null) {
+            Messages.showErrorDialog(project, "Please select a devfile.yaml or .devfile.yaml to restart the workspace.", "Restart Workspace")
             return
         }
 
         val devfileContent = try {
-            devfileVirtual.inputStream.readBytes().toString(StandardCharsets.UTF_8)
+            devfile.inputStream.readBytes().toString(StandardCharsets.UTF_8)
         } catch (t: Throwable) {
-            Messages.showErrorDialog(project, "Failed to read devfile.yaml: ${t.message}", "Restart Workspace")
+            thisLogger().warn("Failed to read devfile: ${t.message}", t)
+            Messages.showErrorDialog(project, "Failed to read devfile: ${t.message}", "Restart Workspace")
             return
         }
 
-        val workspaceName = DevWorkspacesProvider.getCurrentWorkspaceName()
-        val namespace = DevWorkspacesProvider.getCurrentWorkspaceNamespace()
-        val apiClient: ApiClient? = DevWorkspacesProvider.getApiClient()
+        val workspaceName = DevWorkspaceUtils.getCurrentWorkspaceName()
+        val namespace = DevWorkspaceUtils.getCurrentWorkspaceNamespace()
+        val apiClient: ApiClient? = DevWorkspaceUtils.getApiClient()
 
-        if (workspaceName.isNullOrBlank() || namespace.isNullOrBlank() || apiClient == null) {
+        if (workspaceName.isNullOrBlank()
+            || namespace.isNullOrBlank()
+            || apiClient == null) {
             Messages.showErrorDialog(project, "Could not determine workspace name/namespace or obtain ApiClient. Set DEVWORKSPACE_NAME + DEVWORKSPACE_NAMESPACE or implement resolution logic.", "Restart Workspace")
             return
         }
@@ -87,5 +90,20 @@ class RestartWorkspaceAction : AnAction(
                 }
             }
         }
+    }
+
+    /**
+     * Retrieves the devfile from the current context.
+     *
+     * Checks the currently edited file or the selected file in the project view.
+     *
+     * @param e The [AnActionEvent] containing the data context.
+     * @return The devfile [VirtualFile] if found, or null otherwise.
+     */
+    private fun getDevfile(e: AnActionEvent): VirtualFile? {
+        val file = e.getData(CommonDataKeys.PSI_FILE)?.virtualFile // edited file
+            ?: e.getData(CommonDataKeys.VIRTUAL_FILE) // selected file (project tree)
+
+        return file?.takeIf { it.name in setOf(".devfile.yaml", "devfile.yaml") }
     }
 }
