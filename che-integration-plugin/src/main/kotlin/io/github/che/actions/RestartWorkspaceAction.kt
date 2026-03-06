@@ -31,9 +31,10 @@ import kotlinx.coroutines.withContext
 import java.nio.charset.StandardCharsets
 
 /**
- * An action that allows restarting a DevWorkspace by applying the local `devfile.yaml`.
- * This action is typically available from the main menu or context menus and is enabled
- * when a project is open and a devfile can be identified.
+ * An action that allows restarting a DevWorkspace by applying a local devfile.
+ * The devfile is identified by content (schema: schemaVersion + metadata), so any filename
+ * is supported. The action is enabled when a project is open and the file in the editor
+ * or selected in the project tree is a devfile.
  */
 class RestartWorkspaceAction : AnAction() {
 
@@ -49,8 +50,8 @@ class RestartWorkspaceAction : AnAction() {
      * Updates the state of the action. This method is called by the system to determine
      * whether the action should be visible and enabled in the current context.
      *
-     * The action is enabled only if a project is open and a `devfile.yaml` or
-     * `.devfile.yaml` file is currently selected in the editor or project view.
+     * The action is enabled only if a project is open and the file in the editor or
+     * selected in the project view is a devfile (identified by schema content).
      *
      * @param e The [AnActionEvent] containing information about the current context.
      */
@@ -81,7 +82,7 @@ class RestartWorkspaceAction : AnAction() {
      * Performs the action logic to restart a DevWorkspace.
      *
      * This method attempts to:
-     * 1. Identify the project and a relevant `devfile.yaml` or `.devfile.yaml`.
+     * 1. Identify the project and the devfile (from editor or selection, by content).
      * 2. Read the content of the identified devfile.
      * 3. Obtain the current workspace name, namespace, and Kubernetes API client.
      * 4. Asynchronously apply the local devfile to the DevWorkspace and then restart it.
@@ -95,7 +96,7 @@ class RestartWorkspaceAction : AnAction() {
 
         val devfile = getDevfile(e)
         if (devfile == null) {
-            Messages.showErrorDialog(project, "Please select a devfile.yaml or .devfile.yaml to restart the workspace.", "Restart Workspace")
+            Messages.showErrorDialog(project, "Please select or open a devfile in the editor or project tree to restart the workspace.", "Restart Workspace")
             return
         }
 
@@ -151,11 +152,15 @@ class RestartWorkspaceAction : AnAction() {
     }
 
     /**
-     * Retrieves the devfile (`.devfile.yaml` or `devfile.yaml`) from the current action event context.
+     * Retrieves a devfile from the current action event context by inspecting the file
+     * currently open in the editor or selected in the project tree. A file is considered
+     * a devfile if its content matches the devfile schema (presence of `schemaVersion`
+     * and `metadata`), so any filename is supported (e.g. `devfile.yaml`, `.devfile.yaml`,
+     * or custom names like `my-workspace.yaml`).
      *
-     * This function checks multiple sources in order:
+     * Checks multiple sources in order:
      * 1. The PSI file currently being edited (for editor context menu)
-     * 2. The file associated with the current editor document (for editor context menu)
+     * 2. The file associated with the current editor document
      * 3. The selected file(s) in project view (VIRTUAL_FILE or VIRTUAL_FILE_ARRAY)
      * 4. Selected items from PlatformDataKeys (for project view)
      *
@@ -163,62 +168,40 @@ class RestartWorkspaceAction : AnAction() {
      * @return The [VirtualFile] representing the devfile if found, otherwise `null`.
      */
     private fun getDevfile(e: AnActionEvent): VirtualFile? {
-        val devfileNames = setOf(".devfile.yaml", "devfile.yaml")
-        
-        return getFromPsiFile(e, devfileNames)
-            ?: getFromEditor(e, devfileNames)
-            ?: getFromVirtualFile(e, devfileNames)
+        getFromPsiFile(e)?.let { if (DevfileUtils.isDevfile(it)) return it }
+        getFromEditor(e)?.let { if (DevfileUtils.isDevfile(it)) return it }
+        getFromVirtualFile(e).firstOrNull { DevfileUtils.isDevfile(it) }?.let { return it }
+        return null
     }
 
-    private fun getFromVirtualFile(e: AnActionEvent, devfileNames: Set<String>): VirtualFile? {
-        val virtualFile = e.getData(CommonDataKeys.VIRTUAL_FILE)
-        if (virtualFile != null
-            && virtualFile.name in devfileNames) {
-            return virtualFile
+    private fun getFromVirtualFile(e: AnActionEvent): Sequence<VirtualFile> {
+        val single = e.getData(CommonDataKeys.VIRTUAL_FILE)
+        if (single != null && !single.isDirectory) {
+            return sequenceOf(single)
         }
-
-        val virtualFiles = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY)
-        if (!virtualFiles.isNullOrEmpty()) {
-            val devfile = virtualFiles.firstOrNull { it.name in devfileNames }
-            if (devfile != null) {
-                return devfile
+        val array = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY).orEmpty()
+        val fromArray = array.asSequence().filter { !it.isDirectory }
+        if (fromArray.any()) return fromArray
+        val selectedItems = e.getData(PlatformDataKeys.SELECTED_ITEMS) ?: emptyArray<Any>()
+        return selectedItems.asSequence().mapNotNull { item ->
+            when (item) {
+                is PsiFile -> item.virtualFile
+                is VirtualFile -> item
+                else -> null
             }
-        }
-
-        val selectedItems = e.getData(PlatformDataKeys.SELECTED_ITEMS)
-        return selectedItems?.asSequence()
-            ?.mapNotNull { item ->
-                when (item) {
-                    is PsiFile -> item.virtualFile
-                    is VirtualFile -> item
-                    else -> null
-                }
-            }
-            ?.firstOrNull { it.name in devfileNames }
+        }.filter { it != null && !it.isDirectory }.map { it!! }
     }
 
-    private fun getFromPsiFile(e: AnActionEvent, devfileNames: Set<String>): VirtualFile? {
+    private fun getFromPsiFile(e: AnActionEvent): VirtualFile? {
         val psiFile: PsiFile? = e.getData(CommonDataKeys.PSI_FILE)
-        val psiVirtualFile = psiFile?.virtualFile
-        return if (psiVirtualFile != null
-            && psiVirtualFile.name in devfileNames
-        ) {
-            psiVirtualFile
-        } else {
-            null
-        }
-
+        val vf = psiFile?.virtualFile
+        return if (vf != null && !vf.isDirectory) vf else null
     }
 
-    private fun getFromEditor(
-        e: AnActionEvent,
-        devfileNames: Set<String>
-    ): VirtualFile? {
+    private fun getFromEditor(e: AnActionEvent): VirtualFile? {
         val editor: Editor? = e.getData(CommonDataKeys.EDITOR)
         return editor?.document?.let { doc ->
-            FileDocumentManager.getInstance()
-                .getFile(doc)?.takeIf { it.name in devfileNames }
-        }
+            FileDocumentManager.getInstance().getFile(doc)
+        }?.takeIf { it != null && !it.isDirectory }
     }
-
 }
