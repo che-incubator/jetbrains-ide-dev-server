@@ -11,7 +11,7 @@
  */
 package io.github.che.actions
 
-import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
+import com.fasterxml.jackson.databind.ObjectMapper
 import com.intellij.openapi.diagnostic.thisLogger
 import io.kubernetes.client.custom.V1Patch
 import io.kubernetes.client.openapi.ApiClient
@@ -32,8 +32,27 @@ import kotlinx.coroutines.withContext
  */
 class DevWorkspaces(apiClient: ApiClient) {
 
-    private val mapper = jacksonObjectMapper()
+    private val mapper = createObjectMapper()
     private val customApi = CustomObjectsApi(apiClient)
+    
+    /**
+     * Creates an ObjectMapper using the IDE's Jackson classes and registers the Kotlin module.
+     * This avoids classloader conflicts by using IDE's Jackson core classes.
+     *
+     * @return [ObjectMapper]
+     */
+    private fun createObjectMapper(): ObjectMapper {
+        val mapper = ObjectMapper()
+        try {
+            // avoid jackson instantiation issues
+            val kotlinModuleClass = Class.forName("com.fasterxml.jackson.module.kotlin.KotlinModule")
+            val kotlinModule = kotlinModuleClass.getDeclaredConstructor().newInstance()
+            mapper.registerModule(kotlinModule as com.fasterxml.jackson.databind.Module)
+        } catch (e: Exception) {
+            thisLogger().warn("Failed to register Kotlin module, continuing without it", e)
+        }
+        return mapper
+    }
 
     /**
      * Applies the given devfile content to the DevWorkspace custom resource by patching
@@ -122,7 +141,6 @@ class DevWorkspaces(apiClient: ApiClient) {
     @Throws(ApiException::class)
     private fun patch(namespace: String, name: String, body: Any) {
         try {
-            val mapper = jacksonObjectMapper()
             val patchJson = when (body) {
                 is String -> body
                 else -> mapper.writeValueAsString(body)
