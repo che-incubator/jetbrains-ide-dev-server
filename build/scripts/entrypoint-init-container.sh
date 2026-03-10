@@ -66,9 +66,11 @@ editor_download_url_configured=$(eval "echo \$${editor_download_url_env_name}")
 if [ -n "$editor_download_url_configured" ]; then
     ide_download_url=$editor_download_url_configured
     echo "Using editor download URL from environment variable: $ide_download_url"
+else
+    echo "Using editor download: $ide_download_url"
 fi
 
-curl -sL "$ide_download_url" | tar xzf - --strip-components=1
+curl -sSL "$ide_download_url" | tar xzf - --strip-components=1
 
 cp -r /status-app/ "$ide_server_path"
 cp /entrypoint-volume.sh "$ide_server_path"
