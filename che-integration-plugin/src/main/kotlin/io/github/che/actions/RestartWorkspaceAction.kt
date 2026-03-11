@@ -104,7 +104,9 @@ class RestartWorkspaceAction : AnAction() {
             devfile.inputStream.readBytes().toString(StandardCharsets.UTF_8)
         } catch (t: Throwable) {
             thisLogger().warn("Failed to read devfile: ${t.message}", t)
-            Messages.showErrorDialog(project, "Failed to read devfile: ${t.message}", "Restart Workspace")
+            Messages.showErrorDialog(project,
+                "Failed to read devfile: ${t.message}",
+                "Restart Workspace")
             return
         }
 
@@ -115,39 +117,71 @@ class RestartWorkspaceAction : AnAction() {
         if (workspaceName.isNullOrBlank()
             || namespace.isNullOrBlank()
             || apiClient == null) {
-            Messages.showErrorDialog(project, "Could not determine workspace name/namespace or obtain ApiClient. Set DEVWORKSPACE_NAME + DEVWORKSPACE_NAMESPACE or implement resolution logic.", "Restart Workspace")
+            Messages.showErrorDialog(project,
+                "Could not determine workspace name/namespace or failed to connect to the cluster.",
+                "Restart Workspace")
             return
         }
 
         CoroutineScope(Dispatchers.IO).launch {
             val dw = DevWorkspaces(apiClient)
 
-            val applied = try {
-                dw.applyLocalDevfile(namespace, workspaceName, devfileContent)
-            } catch (_: Throwable) {
-                false
-            }
-
-            if (!applied) {
+            val modified = modifyDevfile(dw, namespace, workspaceName, devfileContent)
+            if (!modified) {
                 withContext(Dispatchers.Main) {
-                    Messages.showErrorDialog(project, "Failed to apply local devfile to DevWorkspace.", "Restart Workspace")
+                    Messages.showErrorDialog(project,
+                        "Failed to apply local devfile to DevWorkspace.",
+                        "Restart Workspace")
                 }
                 return@launch
             }
 
-            val restarted = try {
-                dw.restartWorkspace(namespace, workspaceName)
-            } catch (_: Throwable) {
-                false
-            }
-
+            val (restarted, errorMessage) = restartWorkspace(dw, namespace, workspaceName)
             withContext(Dispatchers.Main) {
                 if (restarted) {
-                    Messages.showInfoMessage(project, "Devfile applied and workspace restart initiated.", "Restart Workspace")
+                    Messages.showInfoMessage(project,
+                        "Workspace restart initiated successfully.\n\n" +
+                        "The workspace should restart automatically with the updated devfile.",
+                        "Restarting Workspace"
+                    )
                 } else {
-                    Messages.showErrorDialog(project, "Devfile applied, but restart failed.", "Restart Workspace")
+                    val message = if (errorMessage != null) {
+                        "Failed to initiate workspace restart.\n\nError: $errorMessage"
+                    } else {
+                        "Failed to initiate workspace restart."
+                    }
+                    Messages.showErrorDialog(project, message, "Restart Workspace")
                 }
             }
+        }
+    }
+
+    private suspend fun restartWorkspace(
+        dw: DevWorkspaces,
+        namespace: String,
+        workspaceName: String
+    ): Pair<Boolean, String?> {
+        return try {
+            val success = dw.restartWorkspace(namespace, workspaceName)
+            Pair(success, null)
+        } catch (t: Throwable) {
+            thisLogger().warn("Could not restart DevWorkspace.", t)
+            val errorMessage = t.message ?: "Unknown error"
+            Pair(false, errorMessage)
+        }
+    }
+
+    private suspend fun modifyDevfile(
+        dw: DevWorkspaces,
+        namespace: String,
+        workspaceName: String,
+        devfileContent: String
+    ): Boolean {
+        return try {
+            dw.applyLocalDevfile(namespace, workspaceName, devfileContent)
+        } catch (t: Throwable) {
+            thisLogger().warn("Could not apply local devfile to DevWorkspace.", t)
+            false
         }
     }
 
@@ -189,7 +223,7 @@ class RestartWorkspaceAction : AnAction() {
                 is VirtualFile -> item
                 else -> null
             }
-        }.filter { it != null && !it.isDirectory }.map { it!! }
+        }.filter { !it.isDirectory }.map { it }
     }
 
     private fun getFromPsiFile(e: AnActionEvent): VirtualFile? {
@@ -202,6 +236,6 @@ class RestartWorkspaceAction : AnAction() {
         val editor: Editor? = e.getData(CommonDataKeys.EDITOR)
         return editor?.document?.let { doc ->
             FileDocumentManager.getInstance().getFile(doc)
-        }?.takeIf { it != null && !it.isDirectory }
+        }?.takeIf { !it.isDirectory }
     }
 }

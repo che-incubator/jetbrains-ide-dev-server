@@ -81,6 +81,7 @@ class DevWorkspaces(apiClient: ApiClient) {
                 )
 
                 val body: Any = mapper.valueToTree(ops)
+                thisLogger().debug("Patched che.eclipse.org/local-devfile $name to $body")
                 patch(namespace, name, body)
             }
             true
@@ -91,33 +92,37 @@ class DevWorkspaces(apiClient: ApiClient) {
     }
 
     /**
-     * Restarts the DevWorkspace by toggling its `spec.started` field from `false` to `true`.
-     * Some Kubernetes clusters may react to a single replace; this implementation explicitly
-     * sets `started` to `false` and then to `true` to ensure a restart.
+     * Restarts the DevWorkspace by patching spec.started to false then true.
+     * This approach is used by che-code and works despite controller restrictions.
+     *
+     * Based on: https://github.com/che-incubator/che-code/blob/main/code/extensions/che-api/src/impl/k8s-workspace-service-impl.ts
      *
      * This operation runs on the IO dispatcher.
      *
      * @param namespace The namespace of the DevWorkspace.
      * @param name The name of the DevWorkspace.
-     * @return `true` if the workspace restart was successfully initiated, `false` otherwise.
+     * @return `true` if the restart was successfully initiated, `false` otherwise.
      */
     suspend fun restartWorkspace(namespace: String, name: String): Boolean {
         return try {
             withContext(Dispatchers.IO) {
-                // set started = false
+                thisLogger().info("Restarting DevWorkspace $namespace/$name")
+
+                // Stop the workspace using JSON Patch
                 val stopOps = listOf(
                     mapOf("op" to "replace", "path" to "/spec/started", "value" to false)
                 )
-                val stopBody: Any = mapper.valueToTree(stopOps)
-                patch(namespace, name, stopBody)
+                thisLogger().info("Stopping workspace $namespace/$name")
+                patch(namespace, name, stopOps)
 
-                // small delay might be needed in a real environment; callers can wait if required.
-                // set started = true
+                // Start it again
                 val startOps = listOf(
                     mapOf("op" to "replace", "path" to "/spec/started", "value" to true)
                 )
-                val startBody: Any = mapper.valueToTree(startOps)
-                patch(namespace, name, startBody)
+                thisLogger().info("Starting workspace $namespace/$name")
+                patch(namespace, name, startOps)
+
+                thisLogger().info("Workspace restart initiated for $namespace/$name")
             }
             true
         } catch (t: Throwable) {
@@ -158,8 +163,9 @@ class DevWorkspaces(apiClient: ApiClient) {
                 // dryRun
                 // fieldManager
             )
+            thisLogger().info("Patched resource $namespace/$name to content $body")
         } catch (t: Throwable) {
-            thisLogger().error("Unexpected error while patching DevWorkspace $namespace/$name", t)
+            thisLogger().error("Could not patch $namespace/$name", t)
             throw t
         }
     }
