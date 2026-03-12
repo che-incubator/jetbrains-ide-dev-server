@@ -19,6 +19,7 @@ import io.kubernetes.client.openapi.ApiException
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi
 import io.kubernetes.client.util.generic.options.PatchOptions
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
@@ -131,6 +132,9 @@ class DevWorkspaces(apiClient: ApiClient) {
                 thisLogger().info("Stopping workspace $namespace/$name")
                 patch(namespace, name, stopOp)
 
+                thisLogger().info("Waiting for workspace $namespace/$name to stop...")
+                waitUntilPhaseIsNot(setOf("Running", "Starting"), 20000, namespace, name)
+
                 // start workspace
                 val startOp = listOf(
                     mapOf(
@@ -148,6 +152,41 @@ class DevWorkspaces(apiClient: ApiClient) {
         } catch (t: Throwable) {
             thisLogger().error("Failed to restart DevWorkspace $namespace/$name", t)
             false
+        }
+    }
+
+    /**
+     * Waits for the workspace phase to be something other than the given [phases].
+     */
+    private suspend fun waitUntilPhaseIsNot(phases: Set<String>, timeoutMs: Long, namespace: String, name: String) {
+        val start = System.currentTimeMillis()
+        while (System.currentTimeMillis() - start < timeoutMs) {
+            val phase = getStatusPhase(namespace, name)
+            thisLogger().info("Workspace $namespace/$name is now in phase: $phase")
+            if (phase == null
+                || phase !in phases) {
+                return
+            }
+            delay(500)
+        }
+        thisLogger().warn("Timeout waiting for workspace $namespace/$name to change phase (current: ${getStatusPhase(namespace, name)})")
+    }
+
+    /**
+     * Retrieves the current phase of the DevWorkspace.
+     */
+    private fun getStatusPhase(namespace: String, name: String): String? {
+        return try {
+            val response = genericApi.get(namespace, name)
+            if (!response.isSuccess) return null
+
+            return response.getObject()
+                ?.raw // yaml representation
+                ?.getAsJsonObject("status")?.get("phase")
+                ?.asString
+        } catch (t: Throwable) {
+            thisLogger().warn("Could not get phase for $namespace/$name: ${t.message}")
+            null
         }
     }
 
@@ -197,10 +236,9 @@ class DevWorkspaces(apiClient: ApiClient) {
     }
 
     private fun toString(body: Any): String? {
-        val patchJson = when (body) {
+        return when (body) {
             is String -> body
             else -> mapper.writeValueAsString(body)
         }
-        return patchJson
     }
 }
