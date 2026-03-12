@@ -19,6 +19,9 @@ import io.kubernetes.client.openapi.ApiException
 import io.kubernetes.client.openapi.apis.CustomObjectsApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * Helper for applying a local devfile (annotation) and restarting a DevWorkspace.
@@ -34,6 +37,12 @@ class DevWorkspaces(apiClient: ApiClient) {
 
     private val mapper = createObjectMapper()
     private val customApi = CustomObjectsApi(apiClient)
+
+    companion object {
+        private const val API_GROUP = "workspace.devfile.io"
+        private const val API_VERSION = "v1alpha2"
+        private const val RESOURCE_PLURAL = "devworkspaces"
+    }
     
     /**
      * Creates an ObjectMapper using the IDE's Jackson classes and registers the Kotlin module.
@@ -134,8 +143,12 @@ class DevWorkspaces(apiClient: ApiClient) {
     /**
      * Performs a patch operation on a DevWorkspace custom resource.
      *
-     * This private helper method serializes the provided `body` into a JSON patch
-     * and applies it to the specified DevWorkspace.
+     * This method manually constructs an HTTP PATCH request with the correct Content-Type header
+     * for JSON Patch (RFC 6902): application/json-patch+json. Authentication is handled by
+     * extracting the Bearer token from the ApiClient.
+     *
+     * Note: We use manual HTTP requests instead of GenericKubernetesApi because we don't have
+     * proper DevWorkspace model classes that implement KubernetesObject.
      *
      * @param namespace The namespace of the DevWorkspace.
      * @param name The name of the DevWorkspace.
@@ -150,23 +163,65 @@ class DevWorkspaces(apiClient: ApiClient) {
                 is String -> body
                 else -> mapper.writeValueAsString(body)
             }
-            val v1patch = V1Patch(patchJson)
 
-            customApi.patchNamespacedCustomObject(
-                "workspace.devfile.io",
-                "v1alpha2",
-                namespace,
-                "devworkspaces",
-                name,
-                v1patch
-                // pretty
-                // dryRun
-                // fieldManager
-            )
-            thisLogger().info("Patched resource $namespace/$name to content $body")
+            thisLogger().info("Patching resource $namespace/$name with content $patchJson")
+
+            val client = customApi.apiClient
+            val request = createPatchRequest(namespace, name, patchJson, client) ?: return
+            val httpClient = client.httpClient
+            val response = httpClient.newCall(request).execute()
+
+            if (!response.isSuccessful) {
+                val errorBody = response.body?.string() ?: "No error body"
+                throw ApiException(
+                    "HTTP ${response.code} ${response.message}: $errorBody"
+                )
+            }
+
+            thisLogger().info("Successfully patched resource $namespace/$name")
         } catch (t: Throwable) {
             thisLogger().error("Could not patch $namespace/$name", t)
             throw t
         }
+    }
+
+    /**
+     * Creates an HTTP PATCH request for a DevWorkspace with proper Content-Type and authentication.
+     *
+     * @param namespace The namespace of the DevWorkspace.
+     * @param name The name of the DevWorkspace.
+     * @param patchJson The JSON Patch content.
+     * @param apiClient The Kubernetes ApiClient for authentication.
+     * @return The constructed OkHttp Request, or null if patchJson is null.
+     */
+    private fun createPatchRequest(
+        namespace: String,
+        name: String,
+        patchJson: String?,
+        apiClient: ApiClient
+    ): Request? {
+        val patch = patchJson ?: return null
+        val basePath = apiClient.basePath
+        val url = "$basePath/apis/$API_GROUP/$API_VERSION/namespaces/$namespace/$RESOURCE_PLURAL/$name"
+
+        val mediaType = "application/json-patch+json".toMediaType()
+        val requestBody = patchJson.toRequestBody(mediaType)
+
+        val requestBuilder = Request.Builder()
+            .url(url)
+            .patch(requestBody)
+            .addHeader("Accept", "application/json")
+
+        // Add authentication header from ApiClient
+        // The ApiClient uses HttpBearerAuth for service account token authentication
+        val bearerAuth = apiClient.authentications["BearerToken"]
+        if (bearerAuth is io.kubernetes.client.openapi.auth.HttpBearerAuth) {
+            val token = bearerAuth.bearerToken
+            if (token != null) {
+                requestBuilder.addHeader("Authorization", "Bearer $token")
+            }
+        }
+
+        return requestBuilder.build()
     }
 }
