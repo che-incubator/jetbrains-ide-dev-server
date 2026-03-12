@@ -16,12 +16,10 @@ import com.intellij.openapi.diagnostic.thisLogger
 import io.kubernetes.client.custom.V1Patch
 import io.kubernetes.client.openapi.ApiClient
 import io.kubernetes.client.openapi.ApiException
-import io.kubernetes.client.openapi.apis.CustomObjectsApi
+import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi
+import io.kubernetes.client.util.generic.options.PatchOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.Request
-import okhttp3.RequestBody.Companion.toRequestBody
 
 /**
  * Helper for applying a local devfile (annotation) and restarting a DevWorkspace.
@@ -36,7 +34,12 @@ import okhttp3.RequestBody.Companion.toRequestBody
 class DevWorkspaces(apiClient: ApiClient) {
 
     private val mapper = createObjectMapper()
-    private val customApi = CustomObjectsApi(apiClient)
+    private val genericApi = DynamicKubernetesApi(
+        API_GROUP,
+        API_VERSION,
+        RESOURCE_PLURAL,
+        apiClient
+    )
 
     companion object {
         private const val API_GROUP = "workspace.devfile.io"
@@ -117,19 +120,27 @@ class DevWorkspaces(apiClient: ApiClient) {
             withContext(Dispatchers.IO) {
                 thisLogger().info("Restarting DevWorkspace $namespace/$name")
 
-                // Stop the workspace using JSON Patch
-                val stopOps = listOf(
-                    mapOf("op" to "replace", "path" to "/spec/started", "value" to false)
+                // stop workspace
+                val stopOp = listOf(
+                    mapOf(
+                        "op" to "replace",
+                        "path" to "/spec/started",
+                        "value" to false
+                    )
                 )
                 thisLogger().info("Stopping workspace $namespace/$name")
-                patch(namespace, name, stopOps)
+                patch(namespace, name, stopOp)
 
-                // Start it again
-                val startOps = listOf(
-                    mapOf("op" to "replace", "path" to "/spec/started", "value" to true)
+                // start workspace
+                val startOp = listOf(
+                    mapOf(
+                        "op" to "replace",
+                        "path" to "/spec/started",
+                        "value" to true
+                    )
                 )
                 thisLogger().info("Starting workspace $namespace/$name")
-                patch(namespace, name, startOps)
+                patch(namespace, name, startOp)
 
                 thisLogger().info("Workspace restart initiated for $namespace/$name")
             }
@@ -141,87 +152,55 @@ class DevWorkspaces(apiClient: ApiClient) {
     }
 
     /**
-     * Performs a patch operation on a DevWorkspace custom resource.
+     * Performs a patch operation on a DevWorkspace custom resource using GenericKubernetesApi.
      *
-     * This method manually constructs an HTTP PATCH request with the correct Content-Type header
-     * for JSON Patch (RFC 6902): application/json-patch+json. Authentication is handled by
-     * extracting the Bearer token from the ApiClient.
-     *
-     * Note: We use manual HTTP requests instead of GenericKubernetesApi because we don't have
-     * proper DevWorkspace model classes that implement KubernetesObject.
+     * This method uses GenericKubernetesApi with DynamicKubernetesObject to send a patch
+     * with the correct Content-Type header for JSON Patch (RFC 6902): application/json-patch+json.
      *
      * @param namespace The namespace of the DevWorkspace.
      * @param name The name of the DevWorkspace.
-     * @param body The patch body, which can be a String or any object that can be serialized to JSON.
+     * @param stringOrJson The patch body, which can be a String or any object that can be serialized to JSON.
      * @throws ApiException if the Kubernetes API call fails.
      * @throws Throwable for any other unexpected errors during the patching process.
      */
     @Throws(ApiException::class)
-    private fun patch(namespace: String, name: String, body: Any) {
+    private fun patch(namespace: String, name: String, stringOrJson: Any) {
         try {
-            val patchJson = when (body) {
-                is String -> body
-                else -> mapper.writeValueAsString(body)
-            }
+            val patch = toString(stringOrJson)
+            thisLogger().info("Patching resource $namespace/$name with content $patch")
+            val v1Patch = V1Patch(patch)
+            val response = genericApi.patch(
+                namespace,
+                name,
+                V1Patch.PATCH_FORMAT_JSON_PATCH,
+                v1Patch,
+                PatchOptions()
+            )
 
-            thisLogger().info("Patching resource $namespace/$name with content $patchJson")
-
-            val client = customApi.apiClient
-            val request = createPatchRequest(namespace, name, patchJson, client) ?: return
-            val httpClient = client.httpClient
-            val response = httpClient.newCall(request).execute()
-
-            if (!response.isSuccessful) {
-                val errorBody = response.body?.string() ?: "No error body"
+            if (!response.isSuccess) {
+                val status = response.status
+                val message = status?.message ?: "Unknown error"
+                val code = status?.code ?: 0
                 throw ApiException(
-                    "HTTP ${response.code} ${response.message}: $errorBody"
+                    "Could not patch $namespace/$name: $message (code: $code)",
+                    code,
+                    null,
+                    null
                 )
             }
 
-            thisLogger().info("Successfully patched resource $namespace/$name")
+            thisLogger().info("Successfully patched resource $namespace/$name, response=$response")
         } catch (t: Throwable) {
             thisLogger().error("Could not patch $namespace/$name", t)
             throw t
         }
     }
 
-    /**
-     * Creates an HTTP PATCH request for a DevWorkspace with proper Content-Type and authentication.
-     *
-     * @param namespace The namespace of the DevWorkspace.
-     * @param name The name of the DevWorkspace.
-     * @param patchJson The JSON Patch content.
-     * @param apiClient The Kubernetes ApiClient for authentication.
-     * @return The constructed OkHttp Request, or null if patchJson is null.
-     */
-    private fun createPatchRequest(
-        namespace: String,
-        name: String,
-        patchJson: String?,
-        apiClient: ApiClient
-    ): Request? {
-        val patch = patchJson ?: return null
-        val basePath = apiClient.basePath
-        val url = "$basePath/apis/$API_GROUP/$API_VERSION/namespaces/$namespace/$RESOURCE_PLURAL/$name"
-
-        val mediaType = "application/json-patch+json".toMediaType()
-        val requestBody = patchJson.toRequestBody(mediaType)
-
-        val requestBuilder = Request.Builder()
-            .url(url)
-            .patch(requestBody)
-            .addHeader("Accept", "application/json")
-
-        // Add authentication header from ApiClient
-        // The ApiClient uses HttpBearerAuth for service account token authentication
-        val bearerAuth = apiClient.authentications["BearerToken"]
-        if (bearerAuth is io.kubernetes.client.openapi.auth.HttpBearerAuth) {
-            val token = bearerAuth.bearerToken
-            if (token != null) {
-                requestBuilder.addHeader("Authorization", "Bearer $token")
-            }
+    private fun toString(body: Any): String? {
+        val patchJson = when (body) {
+            is String -> body
+            else -> mapper.writeValueAsString(body)
         }
-
-        return requestBuilder.build()
+        return patchJson
     }
 }
