@@ -16,6 +16,7 @@ import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.actionSystem.CommonDataKeys
 import com.intellij.openapi.actionSystem.PlatformDataKeys
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -144,6 +145,7 @@ class RestartWorkspaceAction : AnAction() {
                         "The workspace should restart automatically with the updated devfile.",
                         "Restarting Workspace"
                     )
+                    ApplicationManager.getApplication().exit(true, true, false)
                 } else {
                     val message = if (errorMessage != null) {
                         "Failed to initiate workspace restart.\n\nError: $errorMessage"

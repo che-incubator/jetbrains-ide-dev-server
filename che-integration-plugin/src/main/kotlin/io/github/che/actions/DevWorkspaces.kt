@@ -12,14 +12,15 @@
 package io.github.che.actions
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.thisLogger
 import io.kubernetes.client.custom.V1Patch
 import io.kubernetes.client.openapi.ApiClient
 import io.kubernetes.client.openapi.ApiException
+import io.kubernetes.client.openapi.apis.CoreV1Api
 import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi
 import io.kubernetes.client.util.generic.options.PatchOptions
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
 /**
@@ -41,6 +42,8 @@ class DevWorkspaces(apiClient: ApiClient) {
         RESOURCE_PLURAL,
         apiClient
     )
+
+    private val coreApi = CoreV1Api(apiClient)
 
     companion object {
         private const val API_GROUP = "workspace.devfile.io"
@@ -105,12 +108,13 @@ class DevWorkspaces(apiClient: ApiClient) {
     }
 
     /**
-     * Restarts the DevWorkspace by patching spec.started to false then true.
-     * This approach is used by che-code and works despite controller restrictions.
+     * Restarts the DevWorkspace by deleting its pod(s). 
+     * The DevWorkspace controller will notice the pod is gone and immediately start
+     * a new one (because spec.started is still true). 
+     * Since we update the devfile annotation just before, the new pod will be created
+     * with the updated configuration.
      *
-     * Based on: https://github.com/che-incubator/che-code/blob/main/code/extensions/che-api/src/impl/k8s-workspace-service-impl.ts
-     *
-     * This operation runs on the IO dispatcher.
+     * This operation also exits the remote IDE to trigger a JetBrains Gateway reconnection.
      *
      * @param namespace The namespace of the DevWorkspace.
      * @param name The name of the DevWorkspace.
@@ -119,34 +123,20 @@ class DevWorkspaces(apiClient: ApiClient) {
     suspend fun restartWorkspace(namespace: String, name: String): Boolean {
         return try {
             withContext(Dispatchers.IO) {
-                thisLogger().info("Restarting DevWorkspace $namespace/$name")
+                thisLogger().info("Restarting DevWorkspace $namespace/$name by deleting its pods")
 
-                // stop workspace
-                val stopOp = listOf(
-                    mapOf(
-                        "op" to "replace",
-                        "path" to "/spec/started",
-                        "value" to false
-                    )
-                )
-                thisLogger().info("Stopping workspace $namespace/$name")
-                patch(namespace, name, stopOp)
+                val labelSelector = "controller.devfile.io/devworkspace_name=$name"
+                val podList = coreApi.listNamespacedPod(namespace)
+                    .labelSelector(labelSelector)
+                    .execute()
+                thisLogger().info("found ${podList.items.size} workspace pod(s)")
 
-                thisLogger().info("Waiting for workspace $namespace/$name to stop...")
-                waitUntilPhaseIsNot(setOf("Running", "Starting"), 20000, namespace, name)
-
-                // start workspace
-                val startOp = listOf(
-                    mapOf(
-                        "op" to "replace",
-                        "path" to "/spec/started",
-                        "value" to true
-                    )
-                )
-                thisLogger().info("Starting workspace $namespace/$name")
-                patch(namespace, name, startOp)
-
-                thisLogger().info("Workspace restart initiated for $namespace/$name")
+                podList.items
+                    .mapNotNull { it.metadata?.name }
+                    .map { podName ->
+                        deletePod(podName, namespace)
+                    }
+                    .all { result -> result }
             }
             true
         } catch (t: Throwable) {
@@ -155,38 +145,15 @@ class DevWorkspaces(apiClient: ApiClient) {
         }
     }
 
-    /**
-     * Waits for the workspace phase to be something other than the given [phases].
-     */
-    private suspend fun waitUntilPhaseIsNot(phases: Set<String>, timeoutMs: Long, namespace: String, name: String) {
-        val start = System.currentTimeMillis()
-        while (System.currentTimeMillis() - start < timeoutMs) {
-            val phase = getStatusPhase(namespace, name)
-            thisLogger().info("Workspace $namespace/$name is now in phase: $phase")
-            if (phase == null
-                || phase !in phases) {
-                return
-            }
-            delay(500)
-        }
-        thisLogger().warn("Timeout waiting for workspace $namespace/$name to change phase (current: ${getStatusPhase(namespace, name)})")
-    }
-
-    /**
-     * Retrieves the current phase of the DevWorkspace.
-     */
-    private fun getStatusPhase(namespace: String, name: String): String? {
+    private fun deletePod(podName: String, namespace: String): Boolean {
         return try {
-            val response = genericApi.get(namespace, name)
-            if (!response.isSuccess) return null
-
-            return response.getObject()
-                ?.raw // yaml representation
-                ?.getAsJsonObject("status")?.get("phase")
-                ?.asString
+            thisLogger().info("Deleting pod $podName")
+            coreApi.deleteNamespacedPod(podName, namespace)
+                .execute()
+            true
         } catch (t: Throwable) {
-            thisLogger().warn("Could not get phase for $namespace/$name: ${t.message}")
-            null
+            thisLogger().error("Failed to delete pod $podName in namespace $namespace", t)
+            false
         }
     }
 
