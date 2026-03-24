@@ -86,7 +86,9 @@ class Devfile internal constructor(
             val content = try {
                 val document = documentProvider(file)
                 document?.text?.take(DETECTION_LIMIT_BYTES) // in editor
-                    ?: file.inputStream.readNBytes(DETECTION_LIMIT_BYTES).toString(StandardCharsets.UTF_8) // on disk
+                    ?: file.inputStream.use {
+                        it.readNBytes(DETECTION_LIMIT_BYTES).toString(StandardCharsets.UTF_8)
+                    } // on disk
             } catch (_: Throwable) {
                 return false
             }
@@ -109,7 +111,9 @@ class Devfile internal constructor(
         return try {
             val document = documentProvider(file)
             document?.text // file in editor
-                ?: file.inputStream.readBytes().toString(StandardCharsets.UTF_8) // file on disk
+                ?: file.inputStream.use {
+                    it.readBytes().toString(StandardCharsets.UTF_8)
+                } // file on disk
         } catch (t: Throwable) {
             thisLogger().warn("Failed to read devfile: ${t.message}", t)
             null
