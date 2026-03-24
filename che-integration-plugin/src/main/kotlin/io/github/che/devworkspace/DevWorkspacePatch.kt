@@ -94,7 +94,7 @@ import kotlinx.coroutines.withContext
      * Adds the restart marker annotation to the specified DevWorkspace resource.
      * This signals the Gateway plugin to restart the workspace.
      *
-     * Uses Strategic Merge Patch to ensure annotations map is created if it doesn't exist.
+     * Uses JSON Merge Patch (RFC 7386) which automatically creates the annotations map if missing.
      *
      * @param name The name of the DevWorkspace.
      * @param namespace The namespace of the DevWorkspace.
@@ -112,7 +112,7 @@ import kotlinx.coroutines.withContext
                 )
 
                 thisLogger().info("Adding annotation $ANNOTATION_KEY to $namespace/$name")
-                patch(namespace, name, body, V1Patch.PATCH_FORMAT_STRATEGIC_MERGE_PATCH)
+                patch(namespace, name, body, V1Patch.PATCH_FORMAT_JSON_MERGE_PATCH)
             }
             true
         } catch (t: Throwable) {
@@ -125,7 +125,7 @@ import kotlinx.coroutines.withContext
      * Applies the given devfile content to the DevWorkspace custom resource by patching
      * the `metadata.annotations["che.eclipse.org/local-devfile"]` field.
      *
-     * Uses Strategic Merge Patch to ensure annotations map is created if it doesn't exist.
+     * Uses JSON Merge Patch (RFC 7386) which automatically creates the annotations map if missing.
      *
      * This operation runs on the IO dispatcher.
      *
@@ -147,7 +147,7 @@ import kotlinx.coroutines.withContext
                 )
 
                 thisLogger().info("Adding annotation $annotationKey to $namespace/$name")
-                patch(namespace, name, body, V1Patch.PATCH_FORMAT_STRATEGIC_MERGE_PATCH)
+                patch(namespace, name, body, V1Patch.PATCH_FORMAT_JSON_MERGE_PATCH)
             }
             true
         } catch (t: Throwable) {
