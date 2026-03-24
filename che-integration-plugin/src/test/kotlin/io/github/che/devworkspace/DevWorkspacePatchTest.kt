@@ -63,7 +63,7 @@ class DevWorkspacePatchTest {
 
             verify {
                 mockGenericApi.patch(
-                    namespace, workspaceName, V1Patch.PATCH_FORMAT_STRATEGIC_MERGE_PATCH, any<V1Patch>(), any<PatchOptions>()
+                    namespace, workspaceName, V1Patch.PATCH_FORMAT_JSON_MERGE_PATCH, any<V1Patch>(), any<PatchOptions>()
                 )
             }
         }
@@ -152,7 +152,7 @@ class DevWorkspacePatchTest {
 
             verify {
                 mockGenericApi.patch(
-                    namespace, workspaceName, V1Patch.PATCH_FORMAT_STRATEGIC_MERGE_PATCH, any<V1Patch>(), any<PatchOptions>()
+                    namespace, workspaceName, V1Patch.PATCH_FORMAT_JSON_MERGE_PATCH, any<V1Patch>(), any<PatchOptions>()
                 )
             }
         }
@@ -232,7 +232,7 @@ class DevWorkspacePatchTest {
     }
 
     @Test
-    fun `#applyRestart should use STRATEGIC_MERGE_PATCH format`() {
+    fun `#applyRestart should use JSON_MERGE_PATCH format`() {
         runBlocking {
             // given
             val capturedFormat = slot<String>()
@@ -248,12 +248,12 @@ class DevWorkspacePatchTest {
             devWorkspacePatch.applyRestart(namespace, workspaceName)
 
             // then
-            assertThat(capturedFormat.captured).isEqualTo(V1Patch.PATCH_FORMAT_STRATEGIC_MERGE_PATCH)
+            assertThat(capturedFormat.captured).isEqualTo(V1Patch.PATCH_FORMAT_JSON_MERGE_PATCH)
         }
     }
 
     @Test
-    fun `#applyRestart should use annotation key with forward slashes directly in Strategic Merge Patch`() {
+    fun `#applyRestart should use annotation key with forward slashes directly in Merge Patch`() {
         runBlocking {
             // given
             val capturedPatch = slot<V1Patch>()
@@ -266,14 +266,14 @@ class DevWorkspacePatchTest {
             val patchJson = capturedPatch.captured.value
             val patchBody = mapper.readTree(patchJson)
 
-            // In Strategic Merge Patch, annotation keys with "/" are used directly as object keys
+            // In JSON Merge Patch, annotation keys with "/" are used directly as object keys
             val annotations = patchBody.get("metadata").get("annotations")
             assertThat(annotations.has("che.eclipse.org/restart-in-progress")).isTrue()
         }
     }
 
     @Test
-    fun `#applyDevfile should use annotation key with forward slashes directly in Strategic Merge Patch`() {
+    fun `#applyDevfile should use annotation key with forward slashes directly in Merge Patch`() {
         runBlocking {
             // given
             val capturedPatch = slot<V1Patch>()
@@ -286,7 +286,7 @@ class DevWorkspacePatchTest {
             val patchJson = capturedPatch.captured.value
             val patchBody = mapper.readTree(patchJson)
 
-            // In Strategic Merge Patch, annotation keys with "/" are used directly as object keys
+            // In JSON Merge Patch, annotation keys with "/" are used directly as object keys
             val annotations = patchBody.get("metadata").get("annotations")
             assertThat(annotations.has("che.eclipse.org/local-devfile")).isTrue()
         }
