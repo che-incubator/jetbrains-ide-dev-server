@@ -63,7 +63,7 @@ class DevWorkspacePatchTest {
 
             verify {
                 mockGenericApi.patch(
-                    namespace, workspaceName, V1Patch.PATCH_FORMAT_JSON_PATCH, any<V1Patch>(), any<PatchOptions>()
+                    namespace, workspaceName, V1Patch.PATCH_FORMAT_STRATEGIC_MERGE_PATCH, any<V1Patch>(), any<PatchOptions>()
                 )
             }
         }
@@ -121,13 +121,14 @@ class DevWorkspacePatchTest {
 
             // then
             val patchJson = capturedPatch.captured.value
-            val patchOps = mapper.readTree(patchJson) as ArrayNode
+            val patchBody = mapper.readTree(patchJson)
 
-            assertThat(patchOps).hasSize(1)
-            val op = patchOps[0]
-            assertThat(op.get("op").asText()).isEqualTo("add")
-            assertThat(op.get("path").asText()).isEqualTo("/metadata/annotations/che.eclipse.org~1restart-in-progress")
-            assertThat(op.get("value").asText()).isEqualTo("true")
+            assertThat(patchBody.has("metadata")).isTrue()
+            val metadata = patchBody.get("metadata")
+            assertThat(metadata.has("annotations")).isTrue()
+            val annotations = metadata.get("annotations")
+            assertThat(annotations.has("che.eclipse.org/restart-in-progress")).isTrue()
+            assertThat(annotations.get("che.eclipse.org/restart-in-progress").asText()).isEqualTo("true")
         }
     }
 
@@ -151,7 +152,7 @@ class DevWorkspacePatchTest {
 
             verify {
                 mockGenericApi.patch(
-                    namespace, workspaceName, V1Patch.PATCH_FORMAT_JSON_PATCH, any<V1Patch>(), any<PatchOptions>()
+                    namespace, workspaceName, V1Patch.PATCH_FORMAT_STRATEGIC_MERGE_PATCH, any<V1Patch>(), any<PatchOptions>()
                 )
             }
         }
@@ -219,18 +220,19 @@ class DevWorkspacePatchTest {
 
             // then
             val patchJson = capturedPatch.captured.value
-            val patchOps = mapper.readTree(patchJson) as ArrayNode
+            val patchBody = mapper.readTree(patchJson)
 
-            assertThat(patchOps).hasSize(1)
-            val op = patchOps[0]
-            assertThat(op.get("op").asText()).isEqualTo("add")
-            assertThat(op.get("path").asText()).isEqualTo("/metadata/annotations/che.eclipse.org~1local-devfile")
-            assertThat(op.get("value").asText()).isEqualTo(devfileContent)
+            assertThat(patchBody.has("metadata")).isTrue()
+            val metadata = patchBody.get("metadata")
+            assertThat(metadata.has("annotations")).isTrue()
+            val annotations = metadata.get("annotations")
+            assertThat(annotations.has("che.eclipse.org/local-devfile")).isTrue()
+            assertThat(annotations.get("che.eclipse.org/local-devfile").asText()).isEqualTo(devfileContent)
         }
     }
 
     @Test
-    fun `#applyDevfile should use JSON_PATCH format`() {
+    fun `#applyRestart should use STRATEGIC_MERGE_PATCH format`() {
         runBlocking {
             // given
             val capturedFormat = slot<String>()
@@ -246,12 +248,12 @@ class DevWorkspacePatchTest {
             devWorkspacePatch.applyRestart(namespace, workspaceName)
 
             // then
-            assertThat(capturedFormat.captured).isEqualTo(V1Patch.PATCH_FORMAT_JSON_PATCH)
+            assertThat(capturedFormat.captured).isEqualTo(V1Patch.PATCH_FORMAT_STRATEGIC_MERGE_PATCH)
         }
     }
 
     @Test
-    fun `#applyRestart should correctly escape forward slashes in annotation key`() {
+    fun `#applyRestart should use annotation key with forward slashes directly in Strategic Merge Patch`() {
         runBlocking {
             // given
             val capturedPatch = slot<V1Patch>()
@@ -262,18 +264,16 @@ class DevWorkspacePatchTest {
 
             // then
             val patchJson = capturedPatch.captured.value
-            val patchOps = mapper.readTree(patchJson) as ArrayNode
-            val path = patchOps[0].get("path").asText()
+            val patchBody = mapper.readTree(patchJson)
 
-            // Verify RFC 6901 JSON Pointer escaping: "/" becomes "~1"
-            assertThat(path).contains("~1")
-            assertThat(path).doesNotContain("che.eclipse.org/restart")
-            assertThat(path).isEqualTo("/metadata/annotations/che.eclipse.org~1restart-in-progress")
+            // In Strategic Merge Patch, annotation keys with "/" are used directly as object keys
+            val annotations = patchBody.get("metadata").get("annotations")
+            assertThat(annotations.has("che.eclipse.org/restart-in-progress")).isTrue()
         }
     }
 
     @Test
-    fun `#applyDevfile should correctly escape forward slashes in annotation key`() {
+    fun `#applyDevfile should use annotation key with forward slashes directly in Strategic Merge Patch`() {
         runBlocking {
             // given
             val capturedPatch = slot<V1Patch>()
@@ -284,13 +284,11 @@ class DevWorkspacePatchTest {
 
             // then
             val patchJson = capturedPatch.captured.value
-            val patchOps = mapper.readTree(patchJson) as ArrayNode
-            val path = patchOps[0].get("path").asText()
+            val patchBody = mapper.readTree(patchJson)
 
-            // Verify RFC 6901 JSON Pointer escaping: "/" becomes "~1"
-            assertThat(path).contains("~1")
-            assertThat(path).doesNotContain("che.eclipse.org/local-devfile")
-            assertThat(path).isEqualTo("/metadata/annotations/che.eclipse.org~1local-devfile")
+            // In Strategic Merge Patch, annotation keys with "/" are used directly as object keys
+            val annotations = patchBody.get("metadata").get("annotations")
+            assertThat(annotations.has("che.eclipse.org/local-devfile")).isTrue()
         }
     }
 
@@ -333,6 +331,88 @@ class DevWorkspacePatchTest {
                 any(), any(), any(), capture(capturedPatch), any<PatchOptions>()
             )
         } returns response
+    }
+
+    @Test
+    fun `#removeDevfile should return true when patch succeeds`() {
+        runBlocking {
+            // given
+            mockPatchReturns(createSuccessResponse())
+
+            // when
+            val result = devWorkspacePatch.removeDevfile(namespace, workspaceName)
+
+            // then
+            assertThat(result).isTrue()
+
+            verify {
+                mockGenericApi.patch(
+                    namespace, workspaceName, V1Patch.PATCH_FORMAT_JSON_PATCH, any<V1Patch>(), any<PatchOptions>()
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `#removeDevfile should return false when patch fails`() {
+        LoggedErrorProcessor.executeWith<RuntimeException>(object : LoggedErrorProcessor() {
+            override fun processError(category: String, message: String, details: Array<out String>, t: Throwable?): Set<Action> {
+                return Action.NONE
+            }
+        }) {
+            runBlocking {
+                // given
+                mockPatchReturns(createFailureResponse(404, "Not Found"))
+
+                // when
+                val result = devWorkspacePatch.removeDevfile(namespace, workspaceName)
+
+                // then
+                assertThat(result).isFalse()
+            }
+        }
+    }
+
+    @Test
+    fun `#removeDevfile should return false when exception is thrown`() {
+        LoggedErrorProcessor.executeWith<RuntimeException>(object : LoggedErrorProcessor() {
+            override fun processError(category: String, message: String, details: Array<out String>, t: Throwable?): Set<Action> {
+                return Action.NONE
+            }
+        }) {
+            runBlocking {
+                // given
+                mockPatchThrows(ApiException("Connection timeout"))
+
+                // when
+                val result = devWorkspacePatch.removeDevfile(namespace, workspaceName)
+
+                // then
+                assertThat(result).isFalse()
+            }
+        }
+    }
+
+    @Test
+    fun `#removeDevfile should create correct remove patch`() {
+        runBlocking {
+            // given
+            val capturedPatch = slot<V1Patch>()
+            mockPatchCaptures(capturedPatch, createSuccessResponse())
+
+            // when
+            devWorkspacePatch.removeDevfile(namespace, workspaceName)
+
+            // then
+            val patchJson = capturedPatch.captured.value
+            val patchOps = mapper.readTree(patchJson) as ArrayNode
+
+            assertThat(patchOps).hasSize(1)
+            val op = patchOps[0]
+            assertThat(op.get("op").asText()).isEqualTo("remove")
+            assertThat(op.get("path").asText()).isEqualTo("/metadata/annotations/che.eclipse.org~1local-devfile")
+            assertThat(op.has("value")).isFalse() // remove operation should not have a value
+        }
     }
 
 }

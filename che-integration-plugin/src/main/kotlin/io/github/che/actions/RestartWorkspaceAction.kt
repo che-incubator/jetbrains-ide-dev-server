@@ -146,6 +146,15 @@ class RestartWorkspaceAction : AnAction() {
 
                 val applied = patch.applyRestart(namespace, workspaceName)
                 if (!applied) {
+                    // Rollback: remove the local devfile annotation to maintain atomicity
+                    thisLogger().info("Rolling back devfile annotation for $namespace/$workspaceName due to restart annotation failure")
+                    val rollbackSuccess = patch.removeDevfile(namespace, workspaceName)
+                    if (rollbackSuccess) {
+                        thisLogger().info("Successfully rolled back devfile annotation for $namespace/$workspaceName")
+                    } else {
+                        thisLogger().error("Failed to rollback devfile annotation for $namespace/$workspaceName - workspace may be in inconsistent state")
+                    }
+
                     withContext(Dispatchers.Main) {
                         thisLogger().warn("Failed to annotate DevWorkspace $namespace/$workspaceName for restart. Aborting.")
                         Messages.showErrorDialog(project,

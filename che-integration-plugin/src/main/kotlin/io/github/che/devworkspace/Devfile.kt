@@ -89,7 +89,7 @@ class Devfile internal constructor(
                     ?: file.inputStream.use {
                         it.readNBytes(DETECTION_LIMIT_BYTES).toString(StandardCharsets.UTF_8)
                     } // on disk
-            } catch (_: Throwable) {
+            } catch (_: Exception) {
                 return false
             }
             if (!content.contains("metadata")) return false
