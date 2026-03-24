@@ -12,6 +12,7 @@
 package io.github.che.actions
 
 import com.intellij.openapi.actionSystem.*
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.thisLogger
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.fileEditor.FileDocumentManager
@@ -23,9 +24,8 @@ import io.github.che.devworkspace.DevWorkspacePatch
 import io.github.che.devworkspace.DevWorkspaceUtils
 import io.github.che.devworkspace.Devfile
 import io.kubernetes.client.openapi.ApiClient
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 
 /**
@@ -130,28 +130,36 @@ class RestartWorkspaceAction : AnAction() {
             return
         }
 
-        CoroutineScope(Dispatchers.IO).launch {
-            val patch = DevWorkspacePatch(apiClient)
+        ApplicationManager.getApplication().executeOnPooledThread {
+            runBlocking {
+                val patch = DevWorkspacePatch(apiClient)
 
-            val modified = patch.applyDevfile(namespace, workspaceName, devfileContent)
-            if (!modified) {
+                val modified = patch.applyDevfile(namespace, workspaceName, devfileContent)
+                if (!modified) {
+                    withContext(Dispatchers.Main) {
+                        Messages.showErrorDialog(project,
+                            "Failed to apply local devfile to DevWorkspace.",
+                            "Restart Workspace")
+                    }
+                    return@runBlocking
+                }
+
+                val applied = patch.applyRestart(namespace, workspaceName)
+                if (!applied) {
+                    withContext(Dispatchers.Main) {
+                        thisLogger().warn("Failed to annotate DevWorkspace $namespace/$workspaceName for restart. Aborting.")
+                        Messages.showErrorDialog(project,
+                            "Could not restart workspace $namespace/$workspaceName. Could not annotate for restart",
+                            "Restart Workspace")
+                    }
+                    return@runBlocking
+                }
+
                 withContext(Dispatchers.Main) {
-                    Messages.showErrorDialog(project,
-                        "Failed to apply local devfile to DevWorkspace.",
+                    Messages.showInfoMessage(project,
+                        "Workspace restart initiated successfully. The workspace will restart with the updated devfile.",
                         "Restart Workspace")
                 }
-                return@launch
-            }
-
-            val applied = patch.applyRestart(namespace, workspaceName)
-            if (!applied) {
-                withContext(Dispatchers.Main) {
-                    thisLogger().warn("Failed to annotate DevWorkspace $namespace/$workspaceName for restart. Aborting.")
-                    Messages.showErrorDialog(project,
-                        "Could not restart workspace $namespace/$workspaceName. Could not annotate for restart",
-                        "Restart Workspace")
-                }
-                return@launch
             }
         }
     }
