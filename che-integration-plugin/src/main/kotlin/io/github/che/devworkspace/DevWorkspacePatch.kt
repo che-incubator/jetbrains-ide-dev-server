@@ -38,13 +38,13 @@ import kotlinx.coroutines.withContext
  * @param genericApi the kubernetes api to operate on
  * @param mapper the mapper to create json with
  */
-class DevWorkspacePatch internal constructor(
+    class DevWorkspacePatch internal constructor(
     private val genericApi: DynamicKubernetesApi,
     private val mapper: ObjectMapper
 ) {
 
     /**
-     * @param apiClient kubernetes client to use in the dynamis kubernetes api
+     * @param apiClient kubernetes client to use in the dynamic kubernetes api
      */
     constructor(apiClient: ApiClient) : this(
         DynamicKubernetesApi(API_GROUP, API_VERSION, RESOURCE_PLURAL, apiClient),
@@ -76,11 +76,25 @@ class DevWorkspacePatch internal constructor(
             }
             return mapper
         }
+
+        /**
+         * Escapes a string for use in a JSON Pointer path according to RFC 6901.
+         * - "~" is replaced with "~0"
+         * - "/" is replaced with "~1"
+         *
+         * @param key The string to escape
+         * @return The escaped string safe for use in JSON Pointer paths
+         */
+        private fun escapeJsonPointer(key: String): String {
+            return key.replace("~", "~0").replace("/", "~1")
+        }
     }
 
     /**
      * Adds the restart marker annotation to the specified DevWorkspace resource.
      * This signals the Gateway plugin to restart the workspace.
+     *
+     * Uses Strategic Merge Patch to ensure annotations map is created if it doesn't exist.
      *
      * @param name The name of the DevWorkspace.
      * @param namespace The namespace of the DevWorkspace.
@@ -89,19 +103,16 @@ class DevWorkspacePatch internal constructor(
     suspend fun applyRestart(namespace: String, name: String): Boolean {
         return try {
             withContext(Dispatchers.IO) {
-                val path = "/metadata/annotations/${ANNOTATION_KEY.replace("/", "~1")}"
-
-                val ops = listOf(
-                    mapOf(
-                        "op" to "add",
-                        "path" to path,
-                        "value" to ANNOTATION_VALUE
+                val body = mapOf(
+                    "metadata" to mapOf(
+                        "annotations" to mapOf(
+                            ANNOTATION_KEY to ANNOTATION_VALUE
+                        )
                     )
                 )
 
-                val body: Any = mapper.valueToTree(ops)
-                thisLogger().info("Adding restart DevWorkspace annotation to $namespace/$name")
-                patch(namespace, name, body)
+                thisLogger().info("Adding annotation $ANNOTATION_KEY to $namespace/$name")
+                patch(namespace, name, body, V1Patch.PATCH_FORMAT_STRATEGIC_MERGE_PATCH)
             }
             true
         } catch (t: Throwable) {
@@ -114,6 +125,8 @@ class DevWorkspacePatch internal constructor(
      * Applies the given devfile content to the DevWorkspace custom resource by patching
      * the `metadata.annotations["che.eclipse.org/local-devfile"]` field.
      *
+     * Uses Strategic Merge Patch to ensure annotations map is created if it doesn't exist.
+     *
      * This operation runs on the IO dispatcher.
      *
      * @param namespace The namespace of the DevWorkspace.
@@ -124,21 +137,17 @@ class DevWorkspacePatch internal constructor(
     suspend fun applyDevfile(namespace: String, name: String, devfileContent: String): Boolean {
         return try {
             withContext(Dispatchers.IO) {
-                val jsonPointerKey = "che.eclipse.org/local-devfile"
-                val escapedPointer = jsonPointerKey.replace("/", "~1")
-                val path = "/metadata/annotations/$escapedPointer"
-
-                val ops = listOf(
-                    mapOf(
-                        "op" to "add",
-                        "path" to path,
-                        "value" to devfileContent
+                val annotationKey = "che.eclipse.org/local-devfile"
+                val body = mapOf(
+                    "metadata" to mapOf(
+                        "annotations" to mapOf(
+                            annotationKey to devfileContent
+                        )
                     )
                 )
 
-                val body: Any = mapper.valueToTree(ops)
-                thisLogger().debug("Patched che.eclipse.org/local-devfile $name to $body")
-                patch(namespace, name, body)
+                thisLogger().info("Adding annotation $annotationKey to $namespace/$name")
+                patch(namespace, name, body, V1Patch.PATCH_FORMAT_STRATEGIC_MERGE_PATCH)
             }
             true
         } catch (t: Throwable) {
@@ -148,27 +157,61 @@ class DevWorkspacePatch internal constructor(
     }
 
     /**
-     * Performs a patch operation on a DevWorkspace custom resource using GenericKubernetesApi.
+     * Removes the local devfile annotation from the DevWorkspace custom resource.
+     * This is used to roll back a devfile application when the restart annotation fails.
      *
-     * This method uses GenericKubernetesApi with DynamicKubernetesObject to send a patch
-     * with the correct Content-Type header for JSON Patch (RFC 6902): application/json-patch+json.
+     * Uses JSON Patch (RFC 6902) for explicit removal.
+     *
+     * This operation runs on the IO dispatcher.
      *
      * @param namespace The namespace of the DevWorkspace.
      * @param name The name of the DevWorkspace.
-     * @param stringOrJson The patch body, which can be a String or any object that can be serialized to JSON.
+     * @return `true` if the annotation was successfully removed, `false` otherwise.
+     */
+    suspend fun removeDevfile(namespace: String, name: String): Boolean {
+        return try {
+            withContext(Dispatchers.IO) {
+                val annotationKey = "che.eclipse.org/local-devfile"
+                val path = "/metadata/annotations/${escapeJsonPointer(annotationKey)}"
+
+                val ops = listOf(
+                    mapOf(
+                        "op" to "remove",
+                        "path" to path
+                    )
+                )
+
+                thisLogger().info("Removing annotation $annotationKey from $namespace/$name")
+                patch(namespace, name, ops, V1Patch.PATCH_FORMAT_JSON_PATCH)
+            }
+            true
+        } catch (t: Throwable) {
+            thisLogger().error("Failed to remove local devfile annotation from $namespace/$name", t)
+            false
+        }
+    }
+
+    /**
+     * Performs a patch operation on a DevWorkspace custom resource using GenericKubernetesApi.
+     *
+     * @param namespace The namespace of the DevWorkspace.
+     * @param name The name of the DevWorkspace.
+     * @param patchBody The patch body, which can be a String or any object that can be serialized to JSON.
+     * @param patchFormat The patch format (JSON Patch, Strategic Merge Patch, etc.)
      * @throws ApiException if the Kubernetes API call fails.
      * @throws Throwable for any other unexpected errors during the patching process.
      */
     @Throws(ApiException::class)
-    private fun patch(namespace: String, name: String, stringOrJson: Any) {
+    private fun patch(namespace: String, name: String, patchBody: Any, patchFormat: String) {
         try {
-            val patch = toString(stringOrJson)
-            thisLogger().info("Patching resource $namespace/$name with content $patch")
-            val v1Patch = V1Patch(patch)
+            val patchString = toString(patchBody)
+            val v1Patch = V1Patch(patchString)
+
+            thisLogger().info("Patching DevWorkspace $namespace/$name using $patchFormat")
             val response = genericApi.patch(
                 namespace,
                 name,
-                V1Patch.PATCH_FORMAT_JSON_PATCH,
+                patchFormat,
                 v1Patch,
                 PatchOptions()
             )
@@ -185,7 +228,7 @@ class DevWorkspacePatch internal constructor(
                 )
             }
 
-            thisLogger().info("Successfully patched resource $namespace/$name, response=$response")
+            thisLogger().info("Successfully patched DevWorkspace $namespace/$name")
         } catch (t: Throwable) {
             thisLogger().error("Could not patch $namespace/$name", t)
             throw t
