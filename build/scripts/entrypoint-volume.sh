@@ -349,10 +349,6 @@ create_wrapper_script() {
   product_name="$1"
   plugins_path="$2"
 
-  # Create trusted-paths.xml for the temporary home directory
-  config_trusted_paths="$tmp_home/.config/JetBrains/$product_name/options/trusted-paths.xml"
-  create_trusted_paths_config "$config_trusted_paths"
-
   cp "$ide_server_path"/bin/remote-dev-server.sh "$ide_server_path"/bin/remote-dev-server.orig.sh
   chmod +x "$ide_server_path"/bin/remote-dev-server.orig.sh
   cat <<SCRIPT > "$ide_server_path"/bin/remote-dev-server.sh
@@ -381,6 +377,9 @@ start_ide_with_readonly_home() {
   echo "No write permission to HOME=$HOME. Launching IDE dev server with HOME=$tmp_home"
   echo "[INFO] Opening project: $PROJECT_PATH"
   echo "[DEBUG] Full command: \"$ide_server_path\"/bin/remote-dev-server.sh run \"$PROJECT_PATH\""
+  # Create trusted-paths.xml for the temporary home directory
+  config_trusted_paths="$tmp_home/.config/JetBrains/$product_name/options/trusted-paths.xml"
+  create_trusted_paths_config "$config_trusted_paths"
   create_wrapper_script "$product_name" "$plugins_path"
   "$ide_server_path"/bin/remote-dev-server.sh run "$PROJECT_PATH"
 }
