@@ -310,10 +310,37 @@ EOF_WORKSPACE
   echo "[INFO] Multi-project configuration complete. IntelliJ IDEA will auto-detect project types on startup."
 }
 
+create_trusted_paths_config() {
+  config_trusted_paths="$1"
+
+  if [ -f "$config_trusted_paths" ]; then
+    return
+  fi
+
+  echo "[INFO] Creating trusted-paths configuration: $config_trusted_paths"
+  mkdir -p "$(dirname "$config_trusted_paths")"
+
+  cat > "$config_trusted_paths" <<EOF_TRUSTED
+<application>
+  <component name="Trusted.Paths.Settings">
+    <option name="TRUSTED_PATHS">
+      <list>
+        <option value="$PROJECTS_ROOT" />
+      </list>
+    </option>
+  </component>
+</application>
+EOF_TRUSTED
+}
+
 start_ide_with_writable_home() {
   plugins_path="$1"
+  product_name="$2"
+
   echo "Launching IDE dev server with HOME=$HOME"
-  echo "[INFO] Opening project: $PROJECT_PATH"
+  # Create trusted-paths.xml to avoid security prompts
+  config_trusted_paths="$HOME/.config/JetBrains/$product_name/options/trusted-paths.xml"
+  create_trusted_paths_config "$config_trusted_paths"
   echo "[DEBUG] Full command: ./remote-dev-server.sh run \"$PROJECT_PATH\" -Didea.plugins.path=\"$plugins_path\""
   ./remote-dev-server.sh run "$PROJECT_PATH" -Didea.plugins.path="$plugins_path"
 }
@@ -321,45 +348,21 @@ start_ide_with_writable_home() {
 create_wrapper_script() {
   product_name="$1"
   plugins_path="$2"
+
+  # Create trusted-paths.xml for the temporary home directory
+  config_trusted_paths="$tmp_home/.config/JetBrains/$product_name/options/trusted-paths.xml"
+  create_trusted_paths_config "$config_trusted_paths"
+
   cp "$ide_server_path"/bin/remote-dev-server.sh "$ide_server_path"/bin/remote-dev-server.orig.sh
   chmod +x "$ide_server_path"/bin/remote-dev-server.orig.sh
   cat <<SCRIPT > "$ide_server_path"/bin/remote-dev-server.sh
 readonly tmp_home="/tmp/user"
 readonly ide_server_path=/idea-server/
 readonly plugins_path="$plugins_path"
-readonly product_name="$product_name"
 
 mkdir -p \$tmp_home/.config \
   \$tmp_home/.cache \
-  \$tmp_home/config/JetBrains/"\$product_name"/options \
   "\$plugins_path"
-
-config_trusted_paths="\$tmp_home/config/JetBrains/\$product_name/options/trusted-paths.xml"
-if [ ! -f "\$config_trusted_paths" ]; then
-  cat > "\$config_trusted_paths" <<'EOF_TRUSTED_HEADER'
-<application>
-  <component name="Trusted.Paths.Settings">
-    <option name="TRUSTED_PATHS">
-      <list>
-        <option value="\$PROJECT_SOURCE" />
-EOF_TRUSTED_HEADER
-
-  # Add all project subdirectories to trusted paths
-  if [ -d "\$PROJECT_SOURCE" ]; then
-    for project_dir in "\$PROJECT_SOURCE"/*; do
-      if [ -d "\$project_dir" ]; then
-        echo "        <option value=\"\$project_dir\" />" >> "\$config_trusted_paths"
-      fi
-    done
-  fi
-
-  cat >> "\$config_trusted_paths" <<'EOF_TRUSTED_FOOTER'
-      </list>
-    </option>
-  </component>
-</application>
-EOF_TRUSTED_FOOTER
-fi
 
 export HOME="\$tmp_home"
 export XDG_CONFIG_HOME="\$tmp_home/.config"
@@ -373,8 +376,8 @@ SCRIPT
 }
 
 start_ide_with_readonly_home() {
-  product_name="$1"
-  plugins_path="$2"
+  plugins_path="$1"
+  product_name="$2"
   echo "No write permission to HOME=$HOME. Launching IDE dev server with HOME=$tmp_home"
   echo "[INFO] Opening project: $PROJECT_PATH"
   echo "[DEBUG] Full command: \"$ide_server_path\"/bin/remote-dev-server.sh run \"$PROJECT_PATH\""
@@ -407,9 +410,9 @@ start_ide_server() {
   # When registry.access.redhat.com/ubi9 is used for running a user container, HOME=/ which is read-only.
   # In this case, we point remote-dev-server.sh to a writable HOME.
   if [ -w "$HOME" ]; then
-    start_ide_with_writable_home "$plugins_path"
+    start_ide_with_writable_home "$plugins_path" "$product_name"
   else
-    start_ide_with_readonly_home "$product_name" "$plugins_path"
+    start_ide_with_readonly_home "$plugins_path" "$product_name"
   fi
 }
 
