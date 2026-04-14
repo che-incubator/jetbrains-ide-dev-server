@@ -169,6 +169,22 @@ start_machine_exec() {
 # IDE Server
 # ============================================================================
 
+find_projects() {
+  local projects_root="$1"
+
+  for entry in "$projects_root"/*; do
+    [ -e "$entry" ] || continue
+    # skip hidden
+    case "${entry##*/}" in
+      .*) continue ;;
+    esac
+    # only directories
+    if [ -d "$entry" ]; then
+      echo "$entry"
+    fi
+  done
+}
+
 configure_multi_project_modules() {
   projects_root="$1"
 
@@ -180,14 +196,18 @@ configure_multi_project_modules() {
   echo "[INFO] Scanning for projects in $projects_root"
 
   # Find all subdirectories (projects) in the project root
-  projects=$(find "$projects_root" -mindepth 1 -maxdepth 1 -type d -not -name ".*" 2>/dev/null)
-  project_count=$(echo "$projects" | grep -c '^' || echo 0)
+  projects=$(find_projects "$projects_root")
+  if [ -z "$projects" ]; then
+    project_count=0
+  else
+    project_count=$(echo "$projects" | wc -l)
+  fi
 
   echo "[INFO] Found $project_count project(s)"
 
   if [ "$project_count" -eq 0 ]; then
     echo "[WARNING] No projects found in $projects_root"
-    IDE_LAUNCH_DIR="$projects_root"
+    PROJECT_PATH="$projects_root"
     return
   fi
 
@@ -195,13 +215,13 @@ configure_multi_project_modules() {
   if [ "$project_count" -eq 1 ]; then
     single_project=$(echo "$projects" | head -n 1)
     echo "[INFO] Only one project found. Using single project mode: $single_project"
-    IDE_LAUNCH_DIR="$single_project"
+    PROJECT_PATH="$single_project"
     return
   fi
 
   # Multiple projects found - create multi-project configuration
   echo "[INFO] Multiple projects found. Creating multi-project configuration"
-  IDE_LAUNCH_DIR="$projects_root"
+  PROJECT_PATH="$projects_root"
 
   # Create .idea directory if it doesn't exist
   mkdir -p "$projects_root/.idea"
@@ -293,8 +313,9 @@ EOF_WORKSPACE
 start_ide_with_writable_home() {
   plugins_path="$1"
   echo "Launching IDE dev server with HOME=$HOME"
-  echo "[INFO] Opening project: $IDE_LAUNCH_DIR"
-  ./remote-dev-server.sh run "$IDE_LAUNCH_DIR" -Didea.plugins.path="$plugins_path"
+  echo "[INFO] Opening project: $PROJECT_PATH"
+  echo "[DEBUG] Full command: ./remote-dev-server.sh run \"$PROJECT_PATH\" -Didea.plugins.path=\"$plugins_path\""
+  ./remote-dev-server.sh run "$PROJECT_PATH" -Didea.plugins.path="$plugins_path"
 }
 
 create_wrapper_script() {
@@ -345,7 +366,7 @@ export XDG_CONFIG_HOME="\$tmp_home/.config"
 export XDG_CACHE_HOME="\$tmp_home/.cache"
 export XDG_DATA_HOME="\$tmp_home/.data"
 
-"\$ide_server_path"/bin/remote-dev-server.orig.sh \$@\
+"\$ide_server_path"/bin/remote-dev-server.orig.sh "\$@" \
   -Djna.library.path="\$ide_server_path"/plugins/remote-dev-server/selfcontained/lib \
   -Didea.plugins.path="\$plugins_path"
 SCRIPT
@@ -355,9 +376,10 @@ start_ide_with_readonly_home() {
   product_name="$1"
   plugins_path="$2"
   echo "No write permission to HOME=$HOME. Launching IDE dev server with HOME=$tmp_home"
-  echo "[INFO] Opening project: $IDE_LAUNCH_DIR"
+  echo "[INFO] Opening project: $PROJECT_PATH"
+  echo "[DEBUG] Full command: \"$ide_server_path\"/bin/remote-dev-server.sh run \"$PROJECT_PATH\""
   create_wrapper_script "$product_name" "$plugins_path"
-  "$ide_server_path"/bin/remote-dev-server.sh run "$IDE_LAUNCH_DIR"
+  "$ide_server_path"/bin/remote-dev-server.sh run "$PROJECT_PATH"
 }
 
 start_ide_server() {
@@ -375,9 +397,11 @@ start_ide_server() {
   cp -r "$ide_server_path"/ide-plugin/. "$plugins_path"
 
   # Configure multi-project modules and determine which directory to launch
-  # IDE_LAUNCH_DIR will be set by configure_multi_project_modules based on the number of projects
-  IDE_LAUNCH_DIR="$PROJECTS_ROOT"
+  # PROJECT_PATH will be set by configure_multi_project_modules based on the number of projects
+  PROJECTS_ROOT="${PROJECTS_ROOT:-/projects}"
+  PROJECT_PATH="$PROJECTS_ROOT"
   configure_multi_project_modules "$PROJECTS_ROOT"
+  echo "[DEBUG] After configure_multi_project_modules: PROJECT_PATH=$PROJECT_PATH"
 
   # remote-dev-server.sh writes to several sub-folders of HOME (.config, .cache, etc.)
   # When registry.access.redhat.com/ubi9 is used for running a user container, HOME=/ which is read-only.
