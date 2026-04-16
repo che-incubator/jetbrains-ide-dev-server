@@ -25,4 +25,19 @@
     <extensions defaultExtensionNs="com.intellij">
         <postStartupActivity implementation="io.github.che.StartupActivity"/>
     </extensions>
+
+    <actions>
+          <!-- Added action for restart workspace from local devfile. -->
+        <action
+                id="io.github.che.action.RestartWorkspace"
+                class="io.github.che.actions.RestartWorkspaceAction"
+                text="Restart Workspace (Devfile)"
+                description="Restart the current workspace based on local devfile.yaml">
+            <!-- Add to editor context menu (right-click in editor) -->
+            <add-to-group group-id="EditorPopupMenu" anchor="last"/>
+            <!-- Add to project view context menu (right-click in project tree) -->
+            <add-to-group group-id="ProjectViewPopupMenu" anchor="last"/>
+        </action>
+    </actions>
+
 </idea-plugin>
