@@ -186,9 +186,8 @@ find_projects() {
 }
 
 configure_no_project() {
-  local projects_root="$1"
-  echo "[INFO] No project found. Using project root: $project_root"
-  PROJECT_PATH="$projects_root"
+  echo "[INFO] No project found. Using no project mode."
+  PROJECT_PATH=
 }
 
 configure_single_project() {
@@ -313,8 +312,7 @@ configure_projects() {
   echo "[INFO] Found $project_count project(s)"
 
   if [ "$project_count" -eq 0 ]; then
-    echo "[WARNING] No projects found in $projects_root"
-    configure_no_project "$projects_root"
+    configure_no_project
   elif [ "$project_count" -eq 1 ]; then
     single_project=$(echo "$projects" | head -n 1)
     configure_single_project "$single_project"
@@ -354,8 +352,8 @@ start_ide_with_writable_home() {
   # Create trusted-paths.xml to avoid security prompts
   config_trusted_paths="$HOME/.config/JetBrains/$product_name/options/trusted-paths.xml"
   create_trusted_paths_config "$config_trusted_paths"
-  echo "[DEBUG] Full command: ./remote-dev-server.sh run \"$PROJECT_PATH\" -Didea.plugins.path=\"$plugins_path\""
-  ./remote-dev-server.sh run "$PROJECT_PATH" -Didea.plugins.path="$plugins_path"
+  echo "[DEBUG] Full command: ./remote-dev-server.sh run ${PROJECT_PATH:+\"$PROJECT_PATH\"} -Didea.plugins.path=\"$plugins_path\""
+  ./remote-dev-server.sh run ${PROJECT_PATH:+"$PROJECT_PATH"} -Didea.plugins.path="$plugins_path"
 }
 
 create_wrapper_script() {
@@ -389,12 +387,12 @@ start_ide_with_readonly_home() {
   product_name="$2"
   echo "No write permission to HOME=$HOME. Launching IDE dev server with HOME=$tmp_home"
   echo "[INFO] Opening project: $PROJECT_PATH"
-  echo "[DEBUG] Full command: \"$ide_server_path\"/bin/remote-dev-server.sh run \"$PROJECT_PATH\""
+  echo "[DEBUG] Full command: \"$ide_server_path\"/bin/remote-dev-server.sh run ${PROJECT_PATH:+\"$PROJECT_PATH\"}"
   # Create trusted-paths.xml for the temporary home directory
   config_trusted_paths="$tmp_home/.config/JetBrains/$product_name/options/trusted-paths.xml"
   create_trusted_paths_config "$config_trusted_paths"
   create_wrapper_script "$product_name" "$plugins_path"
-  "$ide_server_path"/bin/remote-dev-server.sh run "$PROJECT_PATH"
+  "$ide_server_path"/bin/remote-dev-server.sh run ${PROJECT_PATH:+"$PROJECT_PATH"}
 }
 
 start_ide_server() {
