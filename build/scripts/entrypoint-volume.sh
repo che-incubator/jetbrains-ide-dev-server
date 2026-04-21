@@ -185,41 +185,22 @@ find_projects() {
   done
 }
 
-configure_multi_project_modules() {
+configure_no_project() {
+  local projects_root="$1"
+  echo "[INFO] No project found. Using project root: $project_root"
+  PROJECT_PATH="$projects_root"
+}
+
+configure_single_project() {
+  project_path="$1"
+  echo "[INFO] Only one project found. Using single project mode: $project_path"
+  PROJECT_PATH="$project_path"
+}
+
+configure_multi_project() {
   projects_root="$1"
+  projects="$2"
 
-  if [ ! -d "$projects_root" ]; then
-    echo "[WARNING] Projects root directory does not exist: $projects_root"
-    return
-  fi
-
-  echo "[INFO] Scanning for projects in $projects_root"
-
-  # Find all subdirectories (projects) in the project root
-  projects=$(find_projects "$projects_root")
-  if [ -z "$projects" ]; then
-    project_count=0
-  else
-    project_count=$(echo "$projects" | wc -l)
-  fi
-
-  echo "[INFO] Found $project_count project(s)"
-
-  if [ "$project_count" -eq 0 ]; then
-    echo "[WARNING] No projects found in $projects_root"
-    PROJECT_PATH="$projects_root"
-    return
-  fi
-
-  # If only one project, use it directly instead of multi-project configuration
-  if [ "$project_count" -eq 1 ]; then
-    single_project=$(echo "$projects" | head -n 1)
-    echo "[INFO] Only one project found. Using single project mode: $single_project"
-    PROJECT_PATH="$single_project"
-    return
-  fi
-
-  # Multiple projects found - create multi-project configuration
   echo "[INFO] Multiple projects found. Creating multi-project configuration"
   PROJECT_PATH="$projects_root"
 
@@ -310,6 +291,38 @@ EOF_WORKSPACE
   echo "[INFO] Multi-project configuration complete. IntelliJ IDEA will auto-detect project types on startup."
 }
 
+configure_projects() {
+  projects_root="$1"
+
+  if [ ! -d "$projects_root" ]; then
+    echo "[WARNING] Projects root directory does not exist: $projects_root"
+    configure_no_project
+    return
+  fi
+
+  echo "[INFO] Scanning for projects in $projects_root"
+
+  # Find all subdirectories (projects) in the project root
+  projects=$(find_projects "$projects_root")
+  if [ -z "$projects" ]; then
+    project_count=0
+  else
+    project_count=$(echo "$projects" | wc -l)
+  fi
+
+  echo "[INFO] Found $project_count project(s)"
+
+  if [ "$project_count" -eq 0 ]; then
+    echo "[WARNING] No projects found in $projects_root"
+    configure_no_project "$projects_root"
+  elif [ "$project_count" -eq 1 ]; then
+    single_project=$(echo "$projects" | head -n 1)
+    configure_single_project "$single_project"
+  else
+    configure_multi_project "$projects_root" "$projects"
+  fi
+}
+
 create_trusted_paths_config() {
   config_trusted_paths="$1"
 
@@ -398,12 +411,12 @@ start_ide_server() {
   # see https://www.jetbrains.com/help/idea/work-inside-remote-project.html#plugins
   cp -r "$ide_server_path"/ide-plugin/. "$plugins_path"
 
-  # Configure multi-project modules and determine which directory to launch
-  # PROJECT_PATH will be set by configure_multi_project_modules based on the number of projects
+  # Configure projects and determine which directory to launch
+  # PROJECT_PATH will be set by configure_projects based on the number of projects
   PROJECTS_ROOT="${PROJECTS_ROOT:-/projects}"
   PROJECT_PATH="$PROJECTS_ROOT"
-  configure_multi_project_modules "$PROJECTS_ROOT"
-  echo "[DEBUG] After configure_multi_project_modules: PROJECT_PATH=$PROJECT_PATH"
+  configure_projects "$PROJECTS_ROOT"
+  echo "[DEBUG] After configure_projects: PROJECT_PATH=$PROJECT_PATH"
 
   # remote-dev-server.sh writes to several sub-folders of HOME (.config, .cache, etc.)
   # When registry.access.redhat.com/ubi9 is used for running a user container, HOME=/ which is read-only.
