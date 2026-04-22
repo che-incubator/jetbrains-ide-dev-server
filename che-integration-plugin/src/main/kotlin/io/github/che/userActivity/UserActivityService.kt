@@ -11,6 +11,7 @@
  */
 package io.github.che.userActivity
 
+import com.intellij.openapi.Disposable
 import com.intellij.openapi.components.Service
 import com.intellij.openapi.editor.EditorFactory
 import com.intellij.openapi.editor.event.CaretEvent
@@ -24,7 +25,11 @@ import java.net.URL
 import javax.swing.Timer
 
 @Service(Service.Level.PROJECT)
-class UserActivityService {
+class UserActivityService : Disposable {
+
+    private val caretListener = object : CaretListener {
+        override fun caretPositionChanged(event: CaretEvent) = updateLastActivityTime()
+    }
 
     private var lastActivityTime: Long = System.currentTimeMillis()
 
@@ -50,9 +55,14 @@ class UserActivityService {
 
     private fun setupActivityListeners() {
         val eventMulticaster = EditorFactory.getInstance().eventMulticaster
-        eventMulticaster.addCaretListener(object : CaretListener {
-            override fun caretPositionChanged(event: CaretEvent) = updateLastActivityTime()
-        }) {}
+        eventMulticaster.addCaretListener(caretListener, this)
+    }
+    
+    override fun dispose() {
+        timer.stop()
+        EditorFactory.getInstance().eventMulticaster.removeCaretListener(caretListener)
+        httpClient.dispatcher.executorService.shutdown()
+        httpClient.connectionPool.evictAll()
     }
 
     private fun updateLastActivityTime() {
