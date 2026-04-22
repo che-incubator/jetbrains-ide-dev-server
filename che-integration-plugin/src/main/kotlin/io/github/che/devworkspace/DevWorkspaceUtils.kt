@@ -24,31 +24,54 @@ import java.nio.file.Paths
  * current DevWorkspace name and namespace, typically from environment variables.
  */
 object DevWorkspaceUtils {
+
+    private val defaultEnvProvider: (String) -> String? = System::getenv
+
+    private val defaultHomeProvider: () -> String = { System.getProperty("user.home") }
+
+    private val defaultClientFactory: (String?) -> ApiClient = { path ->
+        if (path != null) {
+            Config.fromConfig(path)
+        } else {
+            Config.defaultClient()
+        }
+    }
+
     /**
      * Attempts to create a Kubernetes [ApiClient] by checking the following sources in order:
      * 1. The `KUBECONFIG` environment variable.
      * 2. The default kubeconfig file located at `~/.kube/config`.
      * 3. The Kubernetes Java client's default client configuration.
      *
+     * @param envProvider Function to retrieve environment variables (defaults to System::getenv)
+     * @param homeProvider Function to retrieve user home directory (defaults to user.home system property)
+     * @param clientFactory Function to create ApiClient from kubeconfig path (defaults to Config.fromConfig/defaultClient)
      * @return An initialized [ApiClient] if successful, or `null` if an API client
      *         cannot be created or an error occurs during the process.
      */
-    fun createApiClient(): ApiClient? {
+    fun createApiClient(
+        envProvider: (String) -> String? = defaultEnvProvider,
+        homeProvider: () -> String = defaultHomeProvider,
+        clientFactory: (String?) -> ApiClient = defaultClientFactory
+    ): ApiClient? {
         try {
-            val kubeconfigPath = getKubeConfigPath()
+            val kubeconfigPath = getKubeConfigPath(envProvider, homeProvider)
 
             return kubeconfigPath?.takeIf { Files.exists(Paths.get(it)) }
-                ?.let { Config.fromConfig(it) }
-                ?: Config.defaultClient()
+                ?.let { clientFactory(it) }
+                ?: clientFactory(null)
         } catch (e: Throwable) {
             thisLogger().warn("Could not load Kubernetes client", e)
             return null
         }
     }
 
-    private fun getKubeConfigPath(): String? {
-        return System.getenv("KUBECONFIG")
-            ?: File(System.getProperty("user.home"), ".kube/config")
+    private fun getKubeConfigPath(
+        envProvider: (String) -> String?,
+        homeProvider: () -> String
+    ): String? {
+        return envProvider("KUBECONFIG")
+            ?: File(homeProvider(), ".kube/config")
                 .takeIf { it.exists() }?.absolutePath
     }
 
@@ -58,10 +81,13 @@ object DevWorkspaceUtils {
      * Retrieves the workspace name from the `DEVWORKSPACE_NAME`
      * environment variable.
      *
+     * @param envProvider Function to retrieve environment variables (defaults to System::getenv)
      * @return The name of the current DevWorkspace as a [String], or `null` if not found.
      */
-    fun getCurrentWorkspaceName(): String? {
-        return System.getenv("DEVWORKSPACE_NAME")
+    fun getCurrentWorkspaceName(
+        envProvider: (String) -> String? = defaultEnvProvider
+    ): String? {
+        return envProvider("DEVWORKSPACE_NAME")
     }
 
     /**
@@ -70,9 +96,12 @@ object DevWorkspaceUtils {
      * Retrieves the namespace from the `DEVWORKSPACE_NAMESPACE`
      * environment variable.
      *
+     * @param envProvider Function to retrieve environment variables (defaults to System::getenv)
      * @return The namespace of the current DevWorkspace as a [String], or `null` if not found.
      */
-    fun getCurrentWorkspaceNamespace(): String? {
-        return System.getenv("DEVWORKSPACE_NAMESPACE")
+    fun getCurrentWorkspaceNamespace(
+        envProvider: (String) -> String? = defaultEnvProvider
+    ): String? {
+        return envProvider("DEVWORKSPACE_NAMESPACE")
     }
 }
