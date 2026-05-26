@@ -10,7 +10,7 @@
 
 # The image to get the Node.js binary to support running an IDE in a UBI8-based user container.
 # https://registry.access.redhat.com/ubi8/nodejs-22
-FROM registry.redhat.io/ubi8/nodejs-22:1-1779338955 AS ubi8
+FROM registry.access.redhat.com/ubi8/nodejs-22:1-1779338955 AS ubi8
 
 
 # FROM registry.access.redhat.com/ubi9/openjdk-21:latest as plugin-builder
@@ -42,7 +42,7 @@ FROM quay.io/eclipse/che-machine-exec:7.70.0 AS machine-exec
 # Base image tag updater line.
 # See https://github.com/eclipse-che/che-release/pull/90
 # https://registry.access.redhat.com/ubi9/nodejs-22
-FROM registry.redhat.io/ubi9/nodejs-22:9.8
+FROM registry.access.redhat.com/ubi9/nodejs-22:9.8
 
 # Dockerfile for building a container that brings everything needed to:
 # - install Jet Brains IDE to a Dev Workspace
