@@ -9,8 +9,8 @@
 #   Red Hat, Inc. - initial API and implementation
 
 # The image to get the Node.js binary to support running an IDE in a UBI8-based user container.
-# https://registry.access.redhat.com/ubi8/nodejs-20
-FROM registry.access.redhat.com/ubi8/nodejs-20:1-72 AS ubi8
+# https://registry.access.redhat.com/ubi8/nodejs-22
+FROM registry.redhat.io/ubi8/nodejs-22:1-1779338955 AS ubi8
 
 
 # FROM registry.access.redhat.com/ubi9/openjdk-21:latest as plugin-builder
@@ -41,8 +41,8 @@ FROM quay.io/eclipse/che-machine-exec:7.70.0 AS machine-exec
 
 # Base image tag updater line.
 # See https://github.com/eclipse-che/che-release/pull/90
-# https://registry.access.redhat.com/ubi9/nodejs-20
-FROM registry.access.redhat.com/ubi9/nodejs-20:9.5-1739482759
+# https://registry.access.redhat.com/ubi9/nodejs-22
+FROM registry.redhat.io/ubi9/nodejs-22:9.8
 
 # Dockerfile for building a container that brings everything needed to:
 # - install Jet Brains IDE to a Dev Workspace
@@ -74,6 +74,7 @@ RUN npm install
 # there no libbrotli in the image. We provide it additionally to the user's container.
 RUN mkdir /node-ubi9-ld_libs &&  \
     cp -a  \
+      /usr/lib64/libnode.so* \
       /usr/lib64/libbrotli*  \
       /usr/lib64/libssl.so.3* \
       /usr/lib64/libcrypto.so.3* \
@@ -83,6 +84,10 @@ RUN mkdir /node-ubi9-ld_libs &&  \
 
 # To make the solution backward compatible with the UBI8-based user containers.
 COPY --from=ubi8 /usr/bin/node /node-ubi8
+RUN mkdir /node-ubi8-ld_libs
+COPY --from=ubi8 \
+       /usr/lib64/libnode.so* \
+       /node-ubi8-ld_libs
 
 COPY --from=machine-exec --chown=0:0 /go/bin/che-machine-exec /machine-exec-bin/machine-exec-static
 COPY --from=plugin-builder --chown=0:0 /plugin.zip /plugin.zip
