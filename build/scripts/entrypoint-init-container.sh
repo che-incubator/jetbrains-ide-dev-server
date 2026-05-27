@@ -77,6 +77,7 @@ cp /entrypoint-volume.sh "$ide_server_path"
 # It will be copied to the user container if it's absent.
 cp /usr/bin/node "$ide_server_path"/node-ubi9
 cp /node-ubi8 "$ide_server_path"/node-ubi8
+cp -r /node-ubi8-ld_libs "$ide_server_path"/node-ubi8-ld_libs
 cp -r /node-ubi9-ld_libs "$ide_server_path"/node-ubi9-ld_libs
 
 # Copy the folder with machine-exec binaries compatible with UBI8/9

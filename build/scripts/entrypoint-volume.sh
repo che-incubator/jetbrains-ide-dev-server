@@ -101,6 +101,7 @@ start_status_app() {
   case "${openssl_version}" in
   *"1"*)
     mv "$ide_server_path"/node-ubi8 "$ide_server_path"/node
+    custom_ld_path="$ide_server_path/node-ubi8-ld_libs${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
     ;;
   *"3"*)
     mv "$ide_server_path"/node-ubi9 "$ide_server_path"/node
