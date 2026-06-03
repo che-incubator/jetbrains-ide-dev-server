@@ -22,7 +22,7 @@
       "brace-expansion": "1.1.13"
     },
     "path-to-regexp": "8.4.0",
-    "qs": "6.14.2"
+    "qs": "6.15.2"
   },
   "type": "module"
 }
