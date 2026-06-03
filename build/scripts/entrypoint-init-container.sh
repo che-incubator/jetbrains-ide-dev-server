@@ -32,28 +32,28 @@ echo "Downloading IDE binaries..."
 ide_download_url=""
 case $ide_flavour in
   idea)
-    ide_download_url="https://download.jetbrains.com/idea/ideaIU-2025.2.tar.gz"
+    ide_download_url="https://download.jetbrains.com/idea/idea-2026.1.tar.gz"
     ;;
   webstorm)
-    ide_download_url="https://download.jetbrains.com/webstorm/WebStorm-2025.2.tar.gz"
+    ide_download_url="https://download.jetbrains.com/webstorm/WebStorm-2026.1.tar.gz"
     ;;
   pycharm)
-    ide_download_url="https://download.jetbrains.com/python/pycharm-professional-2025.2.tar.gz"
+    ide_download_url="https://download.jetbrains.com/python/pycharm-2026.1.tar.gz"
     ;;
   goland)
-    ide_download_url="https://download.jetbrains.com/go/goland-2025.2.tar.gz"
+    ide_download_url="https://download.jetbrains.com/go/goland-2026.1.tar.gz"
     ;;
   clion)
-    ide_download_url="https://download.jetbrains.com/cpp/CLion-2025.2.tar.gz"
+    ide_download_url="https://download.jetbrains.com/cpp/CLion-2026.1.tar.gz"
     ;;
   phpstorm)
-    ide_download_url="https://download.jetbrains.com/webide/PhpStorm-2025.2.tar.gz"
+    ide_download_url="https://download.jetbrains.com/webide/PhpStorm-2026.1.tar.gz"
     ;;
   rubymine)
-    ide_download_url="https://download.jetbrains.com/ruby/RubyMine-2025.2.tar.gz"
+    ide_download_url="https://download.jetbrains.com/ruby/RubyMine-2026.1.tar.gz"
     ;;
   rider)
-    ide_download_url="https://download.jetbrains.com/rider/JetBrains.Rider-2025.2.tar.gz"
+    ide_download_url="https://download.jetbrains.com/rider/JetBrains.Rider-2026.1.tar.gz"
     ;;
   *)
     echo -n "Unknown IDE is specified: $ide_flavour"
@@ -79,13 +79,15 @@ cp /entrypoint-volume.sh "$ide_server_path"
 # It will be copied to the user container if it's absent.
 cp /usr/bin/node "$ide_server_path"/node-ubi9
 cp /node-ubi8 "$ide_server_path"/node-ubi8
+cp -r /node-ubi8-ld_libs "$ide_server_path"/node-ubi8-ld_libs
 cp -r /node-ubi9-ld_libs "$ide_server_path"/node-ubi9-ld_libs
 
 # Copy the folder with machine-exec binaries compatible with UBI8/9
 cp -r /machine-exec-bin "$ide_server_path"/machine-exec-bin
 
 # Copy the plugin that communicates with the machine-exec server
-cp -r /ide-plugin "$ide_server_path"/ide-plugin
+mkdir -p "$ide_server_path/ide-plugin" && \
+cp -a /ide-plugin/. "$ide_server_path/ide-plugin/"
 
 echo "Volume content:"
 ls -la "$ide_server_path"

@@ -17,6 +17,6 @@ import io.github.che.userActivity.UserActivityService
 
 internal class StartupActivity : ProjectActivity {
     override suspend fun execute(project: Project) {
-        project.getService<UserActivityService>(UserActivityService::class.java)
+        project.getService(UserActivityService::class.java)
     }
 }
