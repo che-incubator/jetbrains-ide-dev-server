@@ -70,7 +70,7 @@ else
     echo "Using editor download: $ide_download_url"
 fi
 
-curl -sSL "$ide_download_url" | tar xzf - --strip-components=1
+curl -fsSL "$ide_download_url" | tar xzf - --strip-components=1
 
 cp -r /status-app/ "$ide_server_path"
 cp /entrypoint-volume.sh "$ide_server_path"
