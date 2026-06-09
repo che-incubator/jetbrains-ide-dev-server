@@ -9,6 +9,13 @@ updates:
     directory: "/status-app"
     schedule:
       interval: "daily"
+  # Maintain dependencies for gradle dependencies
+  - package-ecosystem: "gradle"
+    # Look for `build.gradle` in the `root` directory
+    directory: "/che-integration-plugin"
+    # Check for updates once daily
+    schedule:
+      interval: "daily"
   # Maintain dependencies for GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
