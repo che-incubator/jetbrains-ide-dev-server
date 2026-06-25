@@ -135,7 +135,7 @@ setup_machine_exec_binary() {
   # or it's usage requested explicitly, through the environment variable.
   if [ "$machine_exec_binaries_count" -eq 1 ] || [ "$MACHINE_EXEC_MODE" = "static" ]; then
     echo "[INFO] The machine-exec statically-linked binary will be used"
-    ln -s "$machine_exec_dir/machine-exec-static" "$ide_server_path"/machine-exec
+    ln -sfn "$machine_exec_dir/machine-exec-static" "$ide_server_path"/machine-exec
   else
     # If multiple machine-exec binaries are provided,
     # select the appropriate one depending on the platform.
@@ -148,15 +148,15 @@ setup_machine_exec_dynamic_binary() {
   case "${openssl_version}" in
     *"1"*)
       echo "[INFO] The machine-exec dynamically-linked binary for UBI8 will be used"
-      ln -s "$ide_server_path"/machine-exec-bin/machine-exec-ubi8 "$ide_server_path"/machine-exec
+      ln -sfn "$ide_server_path"/machine-exec-bin/machine-exec-ubi8 "$ide_server_path"/machine-exec
       ;;
     *"3"*)
       echo "[INFO] The machine-exec dynamically-linked binary for UBI9 will be used"
-      ln -s "$ide_server_path"/machine-exec-bin/machine-exec-ubi9 "$ide_server_path"/machine-exec
+      ln -sfn "$ide_server_path"/machine-exec-bin/machine-exec-ubi9 "$ide_server_path"/machine-exec
       ;;
     *)
       echo "[WARNING] Unsupported OpenSSL major version. The machine-exec dynamically-linked binary for UBI9 will be used."
-      ln -s "$ide_server_path"/machine-exec-bin/machine-exec-ubi9 "$ide_server_path"/machine-exec
+      ln -sfn "$ide_server_path"/machine-exec-bin/machine-exec-ubi9 "$ide_server_path"/machine-exec
       ;;
   esac
 }
