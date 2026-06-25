@@ -345,6 +345,30 @@ create_trusted_paths_config() {
 EOF_TRUSTED
 }
 
+cleanup_locks_and_sockets() {
+  target="$1"
+  if [ -d "$target" ]; then
+    find "$target" -name ".lock" -delete 2>/dev/null
+    find "$target" -type s -delete 2>/dev/null
+  fi
+}
+
+cleanup_stale_locks() {
+  echo "[INFO] Cleaning up any stale JetBrains IDE locks from previous pod runs..."
+
+  cleanup_locks_and_sockets "$ACTIVE_HOME/.config/JetBrains"
+
+  # Clean nested project .idea directories.
+  if [ -d "$PROJECTS_ROOT" ]; then
+    find "$PROJECTS_ROOT" -type d -name ".idea" 2>/dev/null | while IFS= read -r idea_dir; do
+      cleanup_locks_and_sockets "$idea_dir"
+    done
+  fi
+
+  # /idea-server/
+  cleanup_locks_and_sockets "$ide_server_path"
+}
+
 start_ide_with_writable_home() {
   plugins_path="$1"
   product_name="$2"
@@ -412,7 +436,6 @@ start_ide_server() {
 
   # Configure projects and determine which directory to launch
   # PROJECT_PATH will be set by configure_projects based on the number of projects
-  PROJECTS_ROOT="${PROJECTS_ROOT:-/projects}"
   PROJECT_PATH="$PROJECTS_ROOT"
   configure_projects "$PROJECTS_ROOT"
   echo "[DEBUG] After configure_projects: PROJECT_PATH=$PROJECT_PATH"
@@ -434,12 +457,21 @@ start_ide_server() {
 main() {
   register_user
 
+  PROJECTS_ROOT="${PROJECTS_ROOT:-/projects}"
+
+  if [ -w "$HOME" ]; then
+    ACTIVE_HOME="$HOME"
+  else
+    ACTIVE_HOME="$tmp_home"
+  fi
+
   echo "Volume content:"
   ls -la "$ide_server_path"
 
   start_status_app
   setup_machine_exec_binary
   start_machine_exec
+  cleanup_stale_locks
   start_ide_server
 }
 
