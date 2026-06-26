@@ -25,7 +25,7 @@ dependencies {
         // bundledPlugin("com.intellij.java")
     }
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("io.kubernetes:client-java:25.0.0") {
+    implementation("io.kubernetes:client-java:26.0.0") {
         // Exclude Jackson from being bundled - IDE already provides it
         exclude(group = "com.fasterxml.jackson.core", module = "jackson-databind")
         exclude(group = "com.fasterxml.jackson.core", module = "jackson-core")
