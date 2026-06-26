@@ -32,7 +32,7 @@ dependencies {
         exclude(group = "com.fasterxml.jackson.core", module = "jackson-annotations")
     }
     // Bundle only the Kotlin module classes, exclude Jackson core (already provided by IDE)    // IDE already provides Jackson core classes, we just need the Kotlin module
-    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.18.2") {
+    implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.22.0") {
         // Exclude Jackson core dependencies - use IDE's version at runtime
         exclude(group = "com.fasterxml.jackson.core", module = "jackson-databind")
         exclude(group = "com.fasterxml.jackson.core", module = "jackson-core")
