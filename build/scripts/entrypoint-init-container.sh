@@ -27,7 +27,6 @@ fi
 
 # Download the IDE binaries and install them to the shared volume.
 cd "$ide_server_path" || exit
-echo "Downloading IDE binaries..."
 # After updating the versions here, update the editor definitions in https://github.com/eclipse-che/che-operator/tree/main/editors-definitions
 ide_download_url=""
 case $ide_flavour in
@@ -70,7 +69,15 @@ else
     echo "Using editor download: $ide_download_url"
 fi
 
-curl -fsSL "$ide_download_url" | tar xzf - --strip-components=1
+# Bypass download + extraction if already done (for same binary)
+prev_ide_download=$([ -e .ide-download-complete ] && cat .ide-download-complete || echo "")
+if [ "${prev_ide_download}" != "${ide_download_url}" ]; then
+  echo "Downloading IDE binaries..."
+  curl -fsSL "${ide_download_url}" | tar xzf - --strip-components=1
+  echo -n "${ide_download_url}" > .ide-download-complete
+else
+  echo "IDE binaries already downloaded and URL unchanged. Skipping."
+fi
 
 cp -r /status-app/ "$ide_server_path"
 cp /entrypoint-volume.sh "$ide_server_path"
@@ -79,11 +86,11 @@ cp /entrypoint-volume.sh "$ide_server_path"
 # It will be copied to the user container if it's absent.
 cp /usr/bin/node "$ide_server_path"/node-ubi9
 cp /node-ubi8 "$ide_server_path"/node-ubi8
-cp -r /node-ubi8-ld_libs "$ide_server_path"/node-ubi8-ld_libs
-cp -r /node-ubi9-ld_libs "$ide_server_path"/node-ubi9-ld_libs
+cp -r /node-ubi8-ld_libs/. "$ide_server_path"/node-ubi8-ld_libs
+cp -r /node-ubi9-ld_libs/. "$ide_server_path"/node-ubi9-ld_libs
 
 # Copy the folder with machine-exec binaries compatible with UBI8/9
-cp -r /machine-exec-bin "$ide_server_path"/machine-exec-bin
+cp -r /machine-exec-bin/. "$ide_server_path"/machine-exec-bin
 
 # Copy the plugin that communicates with the machine-exec server
 mkdir -p "$ide_server_path/ide-plugin" && \
