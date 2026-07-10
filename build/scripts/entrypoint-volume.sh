@@ -416,7 +416,9 @@ start_ide_with_readonly_home() {
   # Create trusted-paths.xml for the temporary home directory
   config_trusted_paths="$tmp_home/.config/JetBrains/$product_name/options/trusted-paths.xml"
   create_trusted_paths_config "$config_trusted_paths"
-  create_wrapper_script "$product_name" "$plugins_path"
+  if [ ! -e "${ide_server_path}"/bin/remote-dev-server.orig.sh ]; then
+    create_wrapper_script "$product_name" "$plugins_path"
+  fi
   "$ide_server_path"/bin/remote-dev-server.sh run ${PROJECT_PATH:+"$PROJECT_PATH"}
 }
 
