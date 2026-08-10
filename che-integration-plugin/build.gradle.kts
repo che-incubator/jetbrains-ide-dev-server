@@ -40,7 +40,7 @@ dependencies {
     }
     implementation(platform("io.netty:netty-bom:4.1.136.Final"))
     testImplementation("io.mockk:mockk:1.13.13")
-    testImplementation("org.assertj:assertj-core:3.27.3")
+    testImplementation("org.assertj:assertj-core:3.27.7")
     testImplementation("org.junit.jupiter:junit-jupiter:5.11.4")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
