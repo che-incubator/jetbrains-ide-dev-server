@@ -90,7 +90,7 @@ updatePackageVersionAndCommitChanges() {
 
   echo "[INFO] Set ${version} in package.json"
 
-  npm --no-git-tag-version version --allow-same-version --prefix status-app ${NEXT_VERSION}
+  npm --no-git-tag-version version --allow-same-version --prefix status-app ${version}
 
   # jq '.version |= "'${version}'"' status-app/package.json > status-app/package.json.update
   # mv -f status-app/package.json.update status-app/package.json
