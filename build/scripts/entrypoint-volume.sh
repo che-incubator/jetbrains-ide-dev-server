@@ -348,7 +348,7 @@ EOF_TRUSTED
 cleanup_locks_and_sockets() {
   target="$1"
   if [ -d "$target" ]; then
-    find "$target" -name ".lock" -delete 2>/dev/null
+    find "$target" \( -name ".lock" -o -name ".pid" -o -name ".port" \) -delete 2>/dev/null
     find "$target" -type s -delete 2>/dev/null
   fi
 }
@@ -357,6 +357,7 @@ cleanup_stale_locks() {
   echo "[INFO] Cleaning up any stale JetBrains IDE locks from previous pod runs..."
 
   cleanup_locks_and_sockets "$ACTIVE_HOME/.config/JetBrains"
+  cleanup_locks_and_sockets "$ACTIVE_HOME/.cache/JetBrains"
 
   # Clean nested project .idea directories.
   if [ -d "$PROJECTS_ROOT" ]; then
