@@ -18,33 +18,102 @@
     <title><%= title %></title>
     <link rel="stylesheet" type="text/css" href="./css/style.css">
   </head>
-  <body>
-    <script>
-      (function () {    
-          window.onload = function () {
-            openGateway()
-          }
-      }())
 
+  <body>
+
+    <main class="page-container">
+
+      <h1>Workspace <%= dwName %> is running</h1>
+
+      <div class="border">
+        <h4>
+          Make sure your local oc client is logged in to your OpenShift cluster
+        </h4>
+
+        <p>
+          Request the
+          <a href="<%= oauthURL %>" target="_blank">token</a>
+          to get the oc login command.
+        </p>
+      </div>
+
+      <section class="connection-section">
+
+        <h2>Get started</h2>
+
+        <p class="connection-description">
+          Select your preferred connection method.
+        </p>
+
+        <div class="connection-options">
+
+          <div class="connection-option">
+            <h3>JetBrains Gateway</h3>
+
+            <p>
+              Connect using the standalone JetBrains Gateway application.
+            </p>
+
+            <a
+              href="javascript:;"
+              class="gateway-button"
+              onclick="openGateway()">
+              Open Gateway
+            </a>
+          </div>
+
+          <div class="connection-option">
+            <h3>Open in <%= ideFullName %></h3>
+
+            <p>
+              Connect directly from IntelliJ IDEA without switching to the
+              standalone JetBrains Gateway application.
+            </p>
+
+            <p class="instructions">
+              In IntelliJ IDEA, select
+              <strong class="menu-path">File &gt; Remote Development &gt; OpenShift Dev Spaces</strong>
+              to access the <strong>connection wizard</strong> and connect to this
+              workspace.
+            </p>
+          </div>
+
+        </div>
+
+      </section>
+
+      <div class="help-section">
+        <h4>Can't open the workspace?</h4>
+
+        <p>
+          If your browser doesn't open Gateway, make sure the prerequisites
+          mentioned in
+          <a
+            href="https://docs.redhat.com/en/documentation/red_hat_openshift_dev_spaces/latest/html/user_guide/assembly_customizing-workspaces_user_guide#proc_connecting-jetbrains-intellij-to-devspaces_user_guide"
+            target="_blank">
+            the documentation
+          </a>
+          are met.
+        </p>
+      </div>
+
+      <p class="dashboard-link">
+        <a href="<%= dashboardURL %>" target="_blank">
+          Open Dashboard
+        </a>
+      </p>
+
+    </main>
+
+    <script>
       function openGateway() {
-        const gatewayLink = "jetbrains-gateway://connect#type=devspaces&dwNamespace=<%= dwNamespace %>&dwName=<%= dwName %>&link=<%= invitationLink %>"
+        const gatewayLink =
+          "jetbrains-gateway://connect#type=devspaces&dwNamespace=<%= dwNamespace %>&dwName=<%= dwName %>&link=<%= invitationLink %>";
+
         console.log("Opening Gateway app: " + gatewayLink);
         window.open(gatewayLink, "_self");
       }
     </script>
 
-    <h1>Workspace <%= dwName %> is running</h1>
-
-    <div class="border">
-      <h4 class="center">Make sure your local oc client is logged in to your OpenShift cluster</h4>
-      <p class="center">Request the <a href="<%= oauthURL %>" target="_blank">token</a> to get the oc login command.</p>
-    </div>
-
-    <h4 class="center">Can't open the workspace?</h4>
-    <p class="center">If your browser doesn't ask you to open Gateway, make sure the prerequisites mentioned in <a href="https://docs.redhat.com/en/documentation/red_hat_openshift_dev_spaces/latest/html/user_guide/assembly_customizing-workspaces_user_guide#proc_connecting-jetbrains-intellij-to-devspaces_user_guide" target="_blank">the documentation</a> are met.</p>
-
-    <!-- Provide an alternative way to open IDE, in case the browser can't show a pop-up -->
-    <p class="center"><a href="javascript:;" onclick="openGateway()"><b>Open in <%= ideFullName %></b></a></p>
-    <p class="center"><a href="<%= dashboardURL %>" target="_blank">Open Dashboard</a></p>
   </body>
 </html>
