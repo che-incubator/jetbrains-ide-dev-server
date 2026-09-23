@@ -10,25 +10,259 @@
  *   Red Hat, Inc. - initial API and implementation
  */
 
+html,
 body {
-  padding-top: 300px;
+  margin: 0;
+  min-height: 100%;
+}
+
+body {
+  min-height: 100vh;
+  box-sizing: border-box;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 30px 20px;
+
   background-color: #eeeeee;
   color: #444;
   font-family: sans-serif;
 }
+
+.page-container {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
 h1 {
+  margin: 0 0 20px;
   font-weight: bold;
   text-align: center;
 }
+
 a {
   color: #0465d7;
-}  
-.center {
+}
+
+/* Login information */
+
+.border {
+  border: 1px solid #c7c7c7;
+  padding: 10px 20px;
+  margin: 0 auto 20px;
+
+  max-width: 700px;
+  box-sizing: border-box;
+
+  border-radius: 6px;
+  background-color: #ffffff;
+
   text-align: center;
 }
-.border {
-  border-style: solid;
-  padding: 5px;
-  margin: auto;
+
+.border h4 {
+  margin: 5px 0 8px;
+}
+
+.border p {
+  margin: 0;
+}
+
+/* Connection section */
+
+.connection-section {
+  margin: 20px auto;
+  padding: 24px;
+
+  border: 1px solid #c7c7c7;
+  border-radius: 8px;
+
+  background-color: #f8f8f8;
+  box-sizing: border-box;
+}
+
+.connection-section h2 {
+  margin: 0 0 6px;
+  text-align: center;
+}
+
+.connection-description {
+  margin: 0 0 20px;
+  text-align: center;
+}
+
+.connection-options {
+  display: flex;
+  gap: 20px;
+  align-items: stretch;
+}
+
+.connection-option {
+  flex: 1;
+  padding: 20px;
+
+  background-color: #ffffff;
+  border: 1px solid #c7c7c7;
+  border-radius: 6px;
+
+  box-sizing: border-box;
+}
+
+.connection-option h3 {
+  margin: 0 0 16px;
+  text-align: center;
+  color: #222;
+}
+
+.connection-option p {
+  margin: 0 0 14px;
+  line-height: 1.5;
+  color: #555;
+}
+
+.connection-option .instructions {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid #e0e0e0;
+}
+
+.gateway-button {
+  display: block;
   width: fit-content;
+  margin: 18px auto 0;
+
+  padding: 9px 18px;
+
+  background-color: #6b57ff;
+  color: #ffffff;
+
+  border: 1px solid #6b57ff;
+  border-radius: 5px;
+
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.gateway-button:hover {
+  background-color: #5845e5;
+  border-color: #5845e5;
+}
+
+@media (max-width: 700px) {
+  .connection-options {
+    flex-direction: column;
+  }
+}
+
+/* Help */
+
+.help-section {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.help-section h4 {
+  margin: 0 0 6px;
+}
+
+.help-section p {
+  margin: 0;
+}
+
+/* Dashboard */
+
+.dashboard-link {
+  margin: 15px 0 0;
+  text-align: center;
+}
+
+/* Mobile */
+
+@media (max-width: 700px) {
+  body {
+    align-items: flex-start;
+    padding: 25px 15px;
+  }
+
+  .connection-options {
+    flex-direction: column;
+  }
+
+  .connection-option {
+    width: 100%;
+  }
+}
+
+/* Dark system theme */
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background-color: #1b1b1b;
+    color: #ffffff;
+  }
+
+  .border,
+  .connection-option {
+    background-color: #252525;
+    border-color: #4a4a4a;
+  }
+
+  .connection-option h3 {
+    color: #ffffff;
+  }
+
+  .connection-option p {
+    color: #b8b8b8;
+  }
+
+  .gateway-button {
+    background-color: #8b7cff;
+    border-color: #8b7cff;
+  }
+
+  .gateway-button:hover {
+    background-color: #7565f5;
+    border-color: #7565f5;
+  }
+}
+
+.connection-option h3 {
+  margin: 0 0 10px;
+  color: #222;
+  text-align: center;
+}
+
+.connection-option p {
+  margin: 0 0 14px;
+  line-height: 1.45;
+  color: #555;
+}
+
+.connection-option .instructions {
+  margin-bottom: 0;
+}
+
+.gateway-button {
+  display: block;
+  width: fit-content;
+  margin: 16px auto 0;
+
+  padding: 9px 18px;
+  background-color: #6b57ff;
+  color: #ffffff;
+
+  border: 1px solid #6b57ff;
+  border-radius: 5px;
+
+  cursor: pointer;
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.menu-path {
+  white-space: nowrap;
 }
