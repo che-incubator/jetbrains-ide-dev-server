@@ -112,19 +112,20 @@ a {
 }
 
 .connection-option h3 {
-  margin: 0 0 16px;
+  margin: 0 0 10px;
   text-align: center;
   color: #222;
 }
 
 .connection-option p {
   margin: 0 0 14px;
-  line-height: 1.5;
+  line-height: 1.45;
   color: #555;
 }
 
 .connection-option .instructions {
   margin-top: 16px;
+  margin-bottom: 0;
   padding-top: 14px;
   border-top: 1px solid #e0e0e0;
 }
@@ -132,7 +133,7 @@ a {
 .gateway-button {
   display: block;
   width: fit-content;
-  margin: 18px auto 0;
+  margin: 16px auto 0;
 
   padding: 9px 18px;
 
@@ -150,12 +151,6 @@ a {
 .gateway-button:hover {
   background-color: #5845e5;
   border-color: #5845e5;
-}
-
-@media (max-width: 700px) {
-  .connection-options {
-    flex-direction: column;
-  }
 }
 
 /* Help */
@@ -228,39 +223,6 @@ a {
     background-color: #7565f5;
     border-color: #7565f5;
   }
-}
-
-.connection-option h3 {
-  margin: 0 0 10px;
-  color: #222;
-  text-align: center;
-}
-
-.connection-option p {
-  margin: 0 0 14px;
-  line-height: 1.45;
-  color: #555;
-}
-
-.connection-option .instructions {
-  margin-bottom: 0;
-}
-
-.gateway-button {
-  display: block;
-  width: fit-content;
-  margin: 16px auto 0;
-
-  padding: 9px 18px;
-  background-color: #6b57ff;
-  color: #ffffff;
-
-  border: 1px solid #6b57ff;
-  border-radius: 5px;
-
-  cursor: pointer;
-  text-decoration: none;
-  font-weight: 600;
 }
 
 .menu-path {
