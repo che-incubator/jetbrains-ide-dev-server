@@ -38,7 +38,7 @@ dependencies {
         exclude(group = "com.fasterxml.jackson.core", module = "jackson-core")
         exclude(group = "com.fasterxml.jackson.core", module = "jackson-annotations")
     }
-    implementation(platform("io.netty:netty-bom:4.1.137.Final"))
+    implementation(platform("io.netty:netty-bom:4.1.138.Final"))
     constraints {
         implementation("org.apache.httpcomponents.client5:httpclient5:5.6.4")
     }
