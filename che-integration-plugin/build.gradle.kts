@@ -41,6 +41,9 @@ dependencies {
     implementation(platform("io.netty:netty-bom:4.1.137.Final"))
     constraints {
         implementation("org.apache.httpcomponents.client5:httpclient5:5.6.4")
+        implementation("org.bouncycastle:bcprov-jdk18on:1.85")
+        implementation("org.bouncycastle:bcpkix-jdk18on:1.85")
+        implementation("org.bouncycastle:bcutil-jdk18on:1.85")
     }
     testImplementation("io.mockk:mockk:1.13.13")
     testImplementation("org.assertj:assertj-core:3.27.3")
