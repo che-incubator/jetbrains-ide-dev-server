@@ -7,7 +7,7 @@
 # SPDX-License-Identifier: EPL-2.0
 #
 
-name: pr-check
+name: Pull Request Check
 
 on: [pull_request]
 
@@ -22,4 +22,17 @@ jobs:
         with:
           context: .
           file: build/dockerfiles/Dockerfile
-          tags: quay.io/che-incubator/che-idea-dev-server:next
+          tags: che-idea-dev-server:pr
+          outputs: type=docker,dest=che-idea-dev-server.tgz
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: che-idea-dev-server
+          path: che-idea-dev-server.tgz
+      - name: Store PR info
+        run: echo "${{ github.event.number }}" > PR_NUMBER
+      - name: Upload PR Number artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: pull-request-number
+          path: PR_NUMBER
