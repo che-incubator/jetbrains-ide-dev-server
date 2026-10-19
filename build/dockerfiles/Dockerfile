@@ -16,24 +16,17 @@ FROM registry.access.redhat.com/ubi8/nodejs-22:1-1779338955 AS ubi8
 # FROM registry.access.redhat.com/ubi9/openjdk-21:latest as plugin-builder
 FROM gradle:9.1.0-jdk21 AS plugin-builder
 
-# NOTE: the below lines are commented out until we figure out why the plugin build is failing in a container
+# Copy the plugin sources
+COPY /che-integration-plugin/ /che-integration-plugin/
+WORKDIR /che-integration-plugin/
 
-# # Copy the plugin sources
-# COPY /che-integration-plugin/ /che-integration-plugin/
-# WORKDIR /che-integration-plugin/
+# Adapt the build to a containerized environment
+RUN mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
+RUN mkdir -p ~/.gradle && echo "kotlin.daemon.enabled=false" >> ~/.gradle/gradle.properties
 
-# # Adapt the build to a containerized environment
-# RUN mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
-# RUN mkdir -p ~/.gradle && echo "kotlin.daemon.enabled=false" >> ~/.gradle/gradle.properties
+RUN ./gradlew --no-daemon --debug -Dorg.gradle.vfs.watch=false -Dkotlin.daemon.enabled=false clean buildPlugin
 
-# RUN ./gradlew --no-daemon --debug -Dorg.gradle.vfs.watch=false -Dkotlin.daemon.enabled=false clean buildPlugin
-
-# RUN cp build/distributions/che-integration-plugin-1.0-SNAPSHOT.zip /plugin.zip
-
-# For now, until the plugin build isn't adapted to a containerized environment and fails,
-# copy the pre-built plugin.
-COPY che-integration-plugin/build/distributions/che-integration-plugin-1.0-SNAPSHOT.zip /plugin.zip
-
+RUN cp build/distributions/che-integration-plugin-1.0-SNAPSHOT.zip /plugin.zip
 
 # Use the latest image that provides the statically-built machine-exec binary (CGO_ENABLED=0)
 FROM quay.io/eclipse/che-machine-exec:7.70.0 AS machine-exec
