@@ -20,11 +20,7 @@ FROM gradle:9.1.0-jdk21 AS plugin-builder
 COPY /che-integration-plugin/ /che-integration-plugin/
 WORKDIR /che-integration-plugin/
 
-# Adapt the build to a containerized environment
-RUN mkdir -p ~/.gradle && echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
-RUN mkdir -p ~/.gradle && echo "kotlin.daemon.enabled=false" >> ~/.gradle/gradle.properties
-
-RUN ./gradlew --no-daemon --debug -Dorg.gradle.vfs.watch=false -Dkotlin.daemon.enabled=false clean buildPlugin
+RUN ./gradlew --no-daemon -Dorg.gradle.vfs.watch=false -Dkotlin.daemon.enabled=false clean buildPlugin
 
 RUN cp build/distributions/che-integration-plugin-1.0-SNAPSHOT.zip /plugin.zip
 
