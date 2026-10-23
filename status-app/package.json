@@ -10,7 +10,7 @@
   "dependencies": {
     "chokidar": "^5.0.0",
     "ejs": "^3.1.10",
-    "express": "^5.2.1"
+    "express": "^5.3.0"
   },
   "overrides": {
     "minimatch@5": {
