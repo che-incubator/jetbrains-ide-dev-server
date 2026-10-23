@@ -44,6 +44,7 @@ dependencies {
         implementation("org.bouncycastle:bcprov-jdk18on:1.85")
         implementation("org.bouncycastle:bcpkix-jdk18on:1.85")
         implementation("org.bouncycastle:bcutil-jdk18on:1.85")
+        implementation("com.google.guava:guava:33.7.2-jre")
     }
     testImplementation("io.mockk:mockk:1.13.13")
     testImplementation("org.assertj:assertj-core:3.27.3")
