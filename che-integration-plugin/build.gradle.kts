@@ -41,6 +41,7 @@ dependencies {
     implementation(platform("io.netty:netty-bom:4.1.138.Final"))
     constraints {
         implementation("org.apache.httpcomponents.client5:httpclient5:5.6.4")
+        implementation("com.google.guava:guava:33.7.2-jre")
     }
     testImplementation("io.mockk:mockk:1.13.13")
     testImplementation("org.assertj:assertj-core:3.27.3")
