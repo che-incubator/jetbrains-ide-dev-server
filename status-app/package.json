@@ -15,7 +15,7 @@
   "overrides": {
     "minimatch@5": {
       ".": "5.1.9",
-      "brace-expansion": "^2.1.4"
+      "brace-expansion": "^2.1.7"
     },
     "path-to-regexp": "8.4.0",
     "qs": "^6.16.0",
