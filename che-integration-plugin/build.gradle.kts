@@ -25,6 +25,8 @@ dependencies {
         // bundledPlugin("com.intellij.java")
     }
     implementation("com.squareup.okhttp3:okhttp:5.5.0")
+    // Direct use by DevfileTemplate; matches client-java transitive version (unpinned).
+    implementation("org.yaml:snakeyaml:2.7")
     implementation("io.kubernetes:client-java:28.0.0") {
         // Exclude Jackson from being bundled - IDE already provides it
         exclude(group = "com.fasterxml.jackson.core", module = "jackson-databind")
