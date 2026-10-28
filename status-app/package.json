@@ -18,9 +18,9 @@
       "brace-expansion": "^2.1.7"
     },
     "path-to-regexp": "8.4.0",
-    "qs": "^6.16.0",
     "express": {
-      "proxy-addr": "^2.0.8"
+      "proxy-addr": "^2.0.8",
+      "body-parser": "^2.4.0"
     }
   },
   "type": "module"
