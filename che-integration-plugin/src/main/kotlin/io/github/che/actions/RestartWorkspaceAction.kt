@@ -14,21 +14,19 @@ package io.github.che.actions
 import com.intellij.openapi.actionSystem.*
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.thisLogger
-import com.intellij.openapi.editor.Editor
-import com.intellij.openapi.fileEditor.FileDocumentManager
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.MessageDialogBuilder
 import com.intellij.openapi.ui.Messages
-import com.intellij.openapi.vfs.VirtualFile
-import com.intellij.psi.PsiFile
 import io.github.che.devworkspace.DevWorkspacePatch
 import io.github.che.devworkspace.DevWorkspaceUtils
 import io.github.che.devworkspace.Devfile
+import io.github.che.devworkspace.RestartException
 import io.kubernetes.client.openapi.ApiClient
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
+import java.awt.Component
 
 /**
  * An action that allows restarting a DevWorkspace by applying a local devfile.
@@ -38,10 +36,6 @@ import kotlinx.coroutines.withContext
  */
 class RestartWorkspaceAction : AnAction(), DumbAware {
 
-    /**
-     * Specifies that the update method should run on a background thread (BGT)
-     * to allow safe access to VirtualFile and PSI data structures.
-     */
     override fun getActionUpdateThread(): ActionUpdateThread {
         return ActionUpdateThread.BGT
     }
@@ -57,28 +51,16 @@ class RestartWorkspaceAction : AnAction(), DumbAware {
      */
     override fun update(e: AnActionEvent) {
         val project = e.project
-        val presentation = e.presentation
-
-        if (project == null) {
-            thisLogger().info("RestartWorkspaceAction: Not visible - no project")
-            presentation.isEnabledAndVisible = false
-            return
-        }
-
-        thisLogger().info("RestartWorkspaceAction: Checking for devfile in context. Place=${e.place}")
-        val devfile = findDevfile(e)
+        val devfile = project?.let { findDevfile(e) }
         val isVisible = devfile != null
+        e.presentation.isEnabledAndVisible = isVisible
 
-        if (!isVisible) {
-            thisLogger().info("RestartWorkspaceAction: Not visible - no devfile found." +
-                    "\nPSI_FILE=${e.getData(CommonDataKeys.PSI_FILE)?.name}" +
-                    "\nVIRTUAL_FILE=${e.getData(CommonDataKeys.VIRTUAL_FILE)?.name}" +
-                    "\nEDITOR=${e.getData(CommonDataKeys.EDITOR) != null}")
-        } else {
-            thisLogger().info("RestartWorkspaceAction: Visible - devfile found: ${devfile.filename}")
+        val detail = when {
+            project == null -> ", no project"
+            devfile != null -> ", devfile=${devfile.filename}"
+            else -> ", no devfile"
         }
-
-        presentation.isEnabledAndVisible = isVisible
+        thisLogger().debug("RestartWorkspaceAction: place=${e.place}, visible=$isVisible$detail")
     }
 
     /**
@@ -88,8 +70,14 @@ class RestartWorkspaceAction : AnAction(), DumbAware {
      * 1. Identify the project and the devfile (from editor or selection, by content).
      * 2. Read the content of the identified devfile.
      * 3. Obtain the current workspace name, namespace, and Kubernetes API client.
-     * 4. Asynchronously apply the local devfile and restart annotation; JetBrains Gateway deletes the pod when it observes the annotation.
-     * 5. Provide user feedback in dialog in case of failure.
+     * 4. Asynchronously read the workspace and compute the template the devfile produces.
+     * 5. Ask the user to confirm, saying whether the devfile changes the workspace.
+     * 6. Publish the pending template and restart annotations on the DevWorkspace to signal
+     *    the DevSpaces gateway plugin to restart the workspace.
+     * 7. Provide user feedback in dialog in case of failure.
+     *
+     * How the gateway acts on the annotations is owned by the `devspaces-gateway-plugin`
+     * (see its `DevWorkspaceRestart`).
      *
      * @param e The [AnActionEvent] which contains information about the current context,
      *          such as the project and selected files.
@@ -97,25 +85,11 @@ class RestartWorkspaceAction : AnAction(), DumbAware {
     override fun actionPerformed(e: AnActionEvent) {
         val project: Project = e.project ?: return
 
-        val devfile = findDevfile(e)
-        if (devfile == null) {
-            Messages.showErrorDialog(project, "Please select or open a devfile in the editor or project tree to restart the workspace.", "Restart Workspace")
-            return
-        }
-
-        val devfileContent = devfile.getContent()
-        if (devfileContent == null) {
-            Messages.showErrorDialog(
-                project,
-                "Failed to read devfile. Please check the file and try again.",
-                "Restart Workspace"
-            )
-            return
-        }
+        val devfileContent = readDevfileContent(e) ?: return
 
         val workspaceName = DevWorkspaceUtils.getCurrentWorkspaceName()
         val namespace = DevWorkspaceUtils.getCurrentWorkspaceNamespace()
-        val apiClient: ApiClient? = DevWorkspaceUtils.createApiClient()
+        val apiClient = DevWorkspaceUtils.createApiClient()
 
         if (workspaceName.isNullOrBlank()
             || namespace.isNullOrBlank()
@@ -128,181 +102,106 @@ class RestartWorkspaceAction : AnAction(), DumbAware {
             return
         }
 
-        val restart = MessageDialogBuilder
-            .yesNo(
-                "Restart Workspace",
-                "Are you sure you want to restart the workspace? This will apply the local devfile."
-            )
-            .yesText("Restart Workspace")
-            .noText("Cancel")
-            .ask(e.getData(PlatformDataKeys.CONTEXT_COMPONENT))
-
-        if (!restart) {
-            return
-        }
-
-        restart(apiClient, namespace, workspaceName, devfileContent, project)
+        // read on the EDT: the context is not meant to be queried from a background thread
+        val contextComponent = e.getData(PlatformDataKeys.CONTEXT_COMPONENT)
+        requestRestart(apiClient, namespace, workspaceName, devfileContent, project, contextComponent)
     }
 
-    private fun restart(
+    /**
+     * Finds the devfile in the action context and reads its content, reporting failures to the user.
+     *
+     * @param event the action event carrying the editor or project-view selection
+     * @return the devfile content, or `null` when no devfile was found or it could not be read
+     */
+    private fun readDevfileContent(event: AnActionEvent): String? {
+        val devfile = findDevfile(event)
+        if (devfile == null) {
+            Messages.showErrorDialog(
+                event.project,
+                "Please select or open a devfile in the editor or project tree to restart the workspace.",
+                "Restart Workspace"
+            )
+            return null
+        }
+
+        val content = devfile.getContent()
+        if (content == null) {
+            Messages.showErrorDialog(
+                event.project,
+                "Failed to read devfile. Please check the file and try again.",
+                "Restart Workspace"
+            )
+            return null
+        }
+
+        return content
+    }
+
+    /**
+     * @param event the action event carrying the editor or project-view selection
+     * @return the first candidate whose content is a devfile, or `null` when there is none
+     */
+    private fun findDevfile(event: AnActionEvent): Devfile? {
+        return ActionContext
+            .files(event)
+            .firstNotNullOfOrNull { Devfile.from(it) }
+    }
+
+    /**
+     * Requests a restart of the workspace by publishing the pending template and the restart
+     * annotations. The gateway plugin performs the actual restart.
+     */
+    private fun requestRestart(
         apiClient: ApiClient,
         namespace: String,
         workspaceName: String,
         devfileContent: String,
-        project: Project
+        project: Project,
+        contextComponent: Component?
     ) {
         ApplicationManager.getApplication().executeOnPooledThread {
             runBlocking {
-                val patch = DevWorkspacePatch(apiClient)
-
-                val modified = patch.applyDevfile(namespace, workspaceName, devfileContent)
-                if (!modified) {
-                    withContext(Dispatchers.Main) {
-                        Messages.showErrorDialog(
-                            project,
-                            "Failed to apply local devfile to DevWorkspace.",
-                            "Restart Workspace"
-                        )
-                    }
-                    return@runBlocking
-                }
-
-                val applied = patch.applyRestart(namespace, workspaceName)
-                if (!applied) {
-                    // Rollback: remove the local devfile annotation to maintain atomicity
-                    thisLogger().info("Rolling back devfile annotation for $namespace/$workspaceName due to restart annotation failure")
-                    val rollbackSuccess = patch.removeDevfile(namespace, workspaceName)
-                    if (rollbackSuccess) {
-                        thisLogger().info("Successfully rolled back devfile annotation for $namespace/$workspaceName")
-                    } else {
-                        thisLogger().error("Failed to rollback devfile annotation for $namespace/$workspaceName - workspace may be in inconsistent state")
+                try {
+                    val patch = DevWorkspacePatch(apiClient)
+                    val plan = patch.planRestart(namespace, workspaceName, devfileContent)
+                    if (!confirmRestart(contextComponent, plan.hasChanges)) {
+                        return@runBlocking
                     }
 
-                    withContext(Dispatchers.Main) {
-                        thisLogger().warn("Failed to annotate DevWorkspace $namespace/$workspaceName for restart. Aborting.")
-                        Messages.showErrorDialog(
-                            project,
-                            "Could not restart workspace $namespace/$workspaceName. Could not annotate for restart",
-                            "Restart Workspace"
-                        )
-                    }
-                    return@runBlocking
-                }
-
-                withContext(Dispatchers.Main) {
-                    Messages.showInfoMessage(
+                    patch.publishRestart(namespace, workspaceName, plan.payload)
+                    thisLogger().info("Published devfile and requested restart of $namespace/$workspaceName.")
+                } catch (e: RestartException) {
+                    thisLogger().warn(
+                        "Restart of $namespace/$workspaceName failed (${e.reason}): ${e.message}"
+                    )
+                    showError(
                         project,
-                        "Workspace restart initiated successfully. The workspace will restart with the updated devfile.",
-                        "Restart Workspace"
+                        e.message ?: "Could not restart workspace $namespace/$workspaceName."
                     )
                 }
             }
         }
     }
 
-    /**
-     * Retrieves a devfile from the current action event context by inspecting the file
-     * currently open in the editor or selected in the project tree. A file is considered
-     * a devfile if its content matches the devfile schema (presence of `schemaVersion`
-     * and `metadata`), so any filename is supported (e.g. `devfile.yaml`, `.devfile.yaml`,
-     * or custom names like `my-workspace.yaml`).
-     *
-     * Checks multiple sources in order:
-     * 1. The PSI file currently being edited (for editor context menu)
-     * 2. The file associated with the current editor document
-     * 3. The selected file(s) in project view (VIRTUAL_FILE or VIRTUAL_FILE_ARRAY)
-     * 4. Selected items from PlatformDataKeys (for project view)
-     *
-     * @param e The [AnActionEvent] providing access to the current editor and project selection data.
-     * @return The [io.github.che.devworkspace.Devfile] instance if found, otherwise `null`.
-     */
-    private fun findDevfile(e: AnActionEvent): Devfile? {
-        thisLogger().debug("findDevfile: Checking PSI_FILE...")
-        Devfile.from(getFromPsiFile(e))?.let {
-            thisLogger().debug("findDevfile: Found devfile from PSI_FILE")
-            return it
-        }
-
-        thisLogger().debug("findDevfile: Checking EDITOR...")
-        Devfile.from(getFromEditor(e))?.let {
-            thisLogger().debug("findDevfile: Found devfile from EDITOR")
-            return it
-        }
-
-        thisLogger().debug("findDevfile: Checking VIRTUAL_FILE...")
-        getFromVirtualFile(e).firstNotNullOfOrNull { Devfile.from(it) }?.let {
-            thisLogger().debug("findDevfile: Found devfile from VIRTUAL_FILE")
-            return it
-        }
-
-        thisLogger().info("findDevfile: No devfile found in any source")
-        return null
-    }
-
-    private fun getFromVirtualFile(e: AnActionEvent): Sequence<VirtualFile> {
-        val virtualFile = e.getData(CommonDataKeys.VIRTUAL_FILE)
-        if (virtualFile != null && !virtualFile.isDirectory) {
-            thisLogger().debug("getFromVirtualFile: Found single VIRTUAL_FILE: ${virtualFile.name}")
-            return sequenceOf(virtualFile)
-        }
-
-        val array = e.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY).orEmpty()
-        val fromArray = array.asSequence().filter { !it.isDirectory }
-        if (fromArray.any()) {
-            thisLogger().debug("getFromVirtualFile: Found files from VIRTUAL_FILE_ARRAY: ${fromArray.joinToString { it.name }}")
-            return fromArray
-        }
-
-        val selectedItems = e.getData(PlatformDataKeys.SELECTED_ITEMS) ?: emptyArray<Any>()
-        thisLogger().debug("getFromVirtualFile: Checking SELECTED_ITEMS, count=${selectedItems.size}")
-        return selectedItems.asSequence().mapNotNull { item ->
-            when (item) {
-                is PsiFile -> item.virtualFile.also {
-                    thisLogger().info("getFromVirtualFile: SELECTED_ITEMS contains PsiFile: ${it?.name}")
-                }
-                is VirtualFile -> item.also {
-                    thisLogger().debug("getFromVirtualFile: SELECTED_ITEMS contains VirtualFile: ${it.name}")
-                }
-                else -> {
-                    thisLogger().debug("getFromVirtualFile: SELECTED_ITEMS contains unknown type: ${item.javaClass.simpleName}")
-                    null
-                }
-            }
-        }
-            .filter { !it.isDirectory }
-            .map { it }
-    }
-
-    private fun getFromPsiFile(e: AnActionEvent): VirtualFile? {
-        val psiFile: PsiFile? = e.getData(CommonDataKeys.PSI_FILE)
-        val vf = psiFile?.virtualFile
-        if (vf != null && !vf.isDirectory) {
-            thisLogger().info("getFromPsiFile: Found file: ${vf.name}")
-            return vf
-        } else if (vf != null) {
-            thisLogger().debug("getFromPsiFile: PSI_FILE is directory: ${vf.name}")
+    private suspend fun confirmRestart(contextComponent: Component?, hasChanges: Boolean): Boolean {
+        val message = if (hasChanges) {
+            "Restart the workspace? Your devfile changes will be applied."
         } else {
-            thisLogger().debug("getFromPsiFile: No PSI_FILE or virtualFile is null")
+            "No devfile changes. Restart the workspace anyway?"
         }
-        return null
+
+        return withContext(Dispatchers.Main) {
+            MessageDialogBuilder
+                .yesNo("Restart Workspace", message)
+                .yesText("Restart Workspace")
+                .noText("Cancel")
+                .ask(contextComponent)
+        }
     }
 
-    private fun getFromEditor(e: AnActionEvent): VirtualFile? {
-        val editor: Editor? = e.getData(CommonDataKeys.EDITOR)
-        if (editor == null) {
-            thisLogger().debug("getFromEditor: No EDITOR in context")
-            return null
+    private suspend fun showError(project: Project, message: String) {
+        withContext(Dispatchers.Main) {
+            Messages.showErrorDialog(project, message, "Restart Workspace")
         }
-
-        val vf = editor.document.let { doc ->
-            FileDocumentManager.getInstance().getFile(doc)
-        }?.takeIf { !it.isDirectory }
-
-        if (vf != null) {
-            thisLogger().debug("getFromEditor: Found file: ${vf.name}")
-        } else {
-            thisLogger().debug("getFromEditor: EDITOR present but no valid file found")
-        }
-        return vf
     }
 }
