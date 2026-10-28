@@ -53,7 +53,8 @@ class Devfile internal constructor(
                 FileDocumentManager.getInstance().getCachedDocument(it)
             }
         ): Devfile? {
-            return if (file == null || file.isDirectory) {
+            return if (file == null
+                || file.isDirectory) {
                 null
             }
             else if (isDevfile(file, documentProvider)) {

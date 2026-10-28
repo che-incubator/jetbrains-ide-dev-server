@@ -24,6 +24,7 @@
          Read more: https://plugins.jetbrains.com/docs/intellij/plugin-extension-points.html -->
     <extensions defaultExtensionNs="com.intellij">
         <postStartupActivity implementation="io.github.che.StartupActivity"/>
+        <notificationGroup id="io.github.che.restart" displayType="BALLOON"/>
     </extensions>
 
     <actions>
