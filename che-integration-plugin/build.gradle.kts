@@ -24,8 +24,8 @@ dependencies {
         // Add necessary plugin dependencies for compilation here, example:
         // bundledPlugin("com.intellij.java")
     }
-    implementation("com.squareup.okhttp3:okhttp:4.12.0")
-    implementation("io.kubernetes:client-java:27.0.0") {
+    implementation("com.squareup.okhttp3:okhttp:5.5.0")
+    implementation("io.kubernetes:client-java:28.0.0") {
         // Exclude Jackson from being bundled - IDE already provides it
         exclude(group = "com.fasterxml.jackson.core", module = "jackson-databind")
         exclude(group = "com.fasterxml.jackson.core", module = "jackson-core")
@@ -41,9 +41,6 @@ dependencies {
     implementation(platform("io.netty:netty-bom:4.1.138.Final"))
     constraints {
         implementation("org.apache.httpcomponents.client5:httpclient5:5.6.4")
-        implementation("org.bouncycastle:bcprov-jdk18on:1.85")
-        implementation("org.bouncycastle:bcpkix-jdk18on:1.85")
-        implementation("org.bouncycastle:bcutil-jdk18on:1.85")
     }
     testImplementation("io.mockk:mockk:1.13.13")
     testImplementation("org.assertj:assertj-core:3.27.3")
