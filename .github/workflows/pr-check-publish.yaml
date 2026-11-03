@@ -82,5 +82,5 @@ jobs:
               issue_number: process.env._PR_NUMBER,
               owner,
               repo,
-              body: `Pull Request image published ✨\n\nImage: [${process.env._IMAGE}](https://${process.env._IMAGE})`
+              body: `Pull Request image published ✨\n\nImage: [${process.env._IMAGE}](https://quay.io/repository/che-incubator-pull-requests/che-idea-dev-server?tab=tags&tag=pr-${process.env._PR_NUMBER})`
             })
