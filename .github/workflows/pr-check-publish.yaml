@@ -69,7 +69,6 @@ jobs:
           fi
           echo "Pull Request: ${matches}"
           echo "pr=${matches}" >> "${GITHUB_OUTPUT}"
-          echo "_PR_NUMBER=${matches}" >> "${GITHUB_ENV}"
 
       - name: Cleanup docker images
         if: steps.resolve.outputs.pr != ''
@@ -89,14 +88,18 @@ jobs:
 
       - name: Push image
         if: steps.resolve.outputs.pr != ''
+        env:
+          _PR_NUMBER: ${{ steps.resolve.outputs.pr }}
         run: |
-          export IMAGE=quay.io/che-incubator-pull-requests/che-idea-dev-server:pr-${{ env._PR_NUMBER }}
+          export IMAGE=quay.io/che-incubator-pull-requests/che-idea-dev-server:pr-${_PR_NUMBER}
           docker tag che-idea-dev-server:pr ${IMAGE}
           docker push ${IMAGE}
           echo "_IMAGE=${IMAGE}" >> $GITHUB_ENV
 
       - name: 'Comment PR'
         if: steps.resolve.outputs.pr != ''
+        env:
+          _PR_NUMBER: ${{ steps.resolve.outputs.pr }}
         uses: actions/github-script@v8
         with:
           script: |
