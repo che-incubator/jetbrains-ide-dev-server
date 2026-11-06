@@ -82,6 +82,11 @@ class RestartWorkspaceActionTest {
 
         val (event, presentation) = createMockEvent()
         every { event.getData(CommonDataKeys.PSI_FILE) } returns mockPsiFile
+        // candidate collection inspects every source; there is no editor or selection here
+        every { event.getData(CommonDataKeys.EDITOR) } returns null
+        every { event.getData(CommonDataKeys.VIRTUAL_FILE) } returns null
+        every { event.getData(CommonDataKeys.VIRTUAL_FILE_ARRAY) } returns null
+        every { event.getData(PlatformDataKeys.SELECTED_ITEMS) } returns null
         createMockFileDocumentManager(mockVirtualFile)
 
         // when

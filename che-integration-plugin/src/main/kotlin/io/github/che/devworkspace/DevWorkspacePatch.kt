@@ -11,6 +11,7 @@
  */
 package io.github.che.devworkspace
 
+import com.fasterxml.jackson.core.type.TypeReference
 import com.fasterxml.jackson.databind.Module
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.intellij.openapi.diagnostic.thisLogger
@@ -21,42 +22,54 @@ import io.kubernetes.client.util.generic.dynamic.DynamicKubernetesApi
 import io.kubernetes.client.util.generic.options.PatchOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.nio.charset.StandardCharsets
+import java.util.concurrent.CancellationException
 
 /**
- * Utility class for patching DevWorkspace resources.
+ * Patches DevWorkspace resources.
  *
- * This class handles applying local devfiles, setting restart annotations, and other
- * patch operations on DevWorkspace resources. The restart marker annotation
- * (`che.eclipse.org/restart-in-progress`) signals the JetBrains Gateway plugin to roll
- * the workspace pod. The Gateway watches the DevWorkspace for this annotation and deletes
- * the pod; on client close it also avoids stopping the DevWorkspace while this marker is set.
+ * The only operation applied here is the restart request: the template the edited devfile
+ * produces and the restart marker annotation (`che.eclipse.org/restart-in-progress`) are written
+ * as annotations in one patch. The template is stored under
+ * `che.eclipse.org/pending-devfile-template`, wrapped in a versioned envelope. `spec.template` is
+ * deliberately left untouched.
+ *
+ * The Gateway plugin watches the restart annotation, closes the IDE, stops the workspace, applies
+ * the pending template to `spec.template` while the workspace is stopped, and starts the workspace
+ * again. Applying the template only while stopped keeps the DevWorkspace Operator from rolling the
+ * pod on its own, which would kill the IDE before the Gateway can close it.
+ *
+ * Both annotations are sent as one JSON Patch request so that the API server applies them
+ * atomically: the restart request is never observable without the template payload.
  *
  * - CRD group: workspace.devfile.io
  * - version: v1alpha2
  * - resource: devworkspaces
  *
  * @param genericApi the kubernetes api to operate on
- * @param mapper the mapper to create json with
+ * @param mapper the mapper used to read the DevWorkspace and write the patch
  */
-    class DevWorkspacePatch internal constructor(
+internal class DevWorkspacePatch(
     private val genericApi: DynamicKubernetesApi,
     private val mapper: ObjectMapper
 ) {
-
-    /**
-     * @param apiClient kubernetes client to use in the dynamic kubernetes api
-     */
-    constructor(apiClient: ApiClient) : this(
-        DynamicKubernetesApi(API_GROUP, API_VERSION, RESOURCE_PLURAL, apiClient),
-        createObjectMapper()
-    )
 
     companion object {
         private const val API_GROUP = "workspace.devfile.io"
         private const val API_VERSION = "v1alpha2"
         private const val RESOURCE_PLURAL = "devworkspaces"
-        private const val ANNOTATION_KEY = "che.eclipse.org/restart-in-progress"
-        private const val ANNOTATION_VALUE = "true"
+        private const val RESTART_ANNOTATION_KEY = "che.eclipse.org/restart-in-progress"
+        private const val RESTART_ANNOTATION_VALUE = "true"
+        private const val PENDING_TEMPLATE_ANNOTATION_KEY = "che.eclipse.org/pending-devfile-template"
+        private const val TEMPLATE_PAYLOAD_VERSION = 1
+
+        /** Kubernetes rejects an object whose annotations exceed 256 KiB in total. */
+        private const val MAX_ANNOTATIONS_BYTES = 256 * 1024
+
+        /** Room for the restart annotation and for escaping differences of the API server. */
+        private const val ANNOTATIONS_HEADROOM_BYTES = 4 * 1024
+
+        private val WORKSPACE_TYPE = object : TypeReference<Map<String, Any?>>() {}
 
         /**
          * Creates an ObjectMapper using the IDE's Jackson classes and registers the Kotlin module.
@@ -91,108 +104,255 @@ import kotlinx.coroutines.withContext
     }
 
     /**
-     * Adds the restart marker annotation to the specified DevWorkspace resource.
-     * This signals the Gateway plugin to restart the workspace.
-     *
-     * Uses JSON Merge Patch (RFC 7386) which automatically creates the annotations map if missing.
-     *
-     * @param name The name of the DevWorkspace.
-     * @param namespace The namespace of the DevWorkspace.
-     * @return `true` if the annotation was successfully added, `false` otherwise.
+     * @param apiClient kubernetes client to use in the dynamic kubernetes api
      */
-    suspend fun applyRestart(namespace: String, name: String): Boolean {
-        return try {
-            withContext(Dispatchers.IO) {
-                val body = mapOf(
-                    "metadata" to mapOf(
-                        "annotations" to mapOf(
-                            ANNOTATION_KEY to ANNOTATION_VALUE
-                        )
-                    )
-                )
-
-                thisLogger().info("Adding annotation $ANNOTATION_KEY to $namespace/$name")
-                patch(namespace, name, body, V1Patch.PATCH_FORMAT_JSON_MERGE_PATCH)
-            }
-            true
-        } catch (t: Throwable) {
-            thisLogger().error("Failed to add restart DevWorkspace annotation to $namespace/$name", t)
-            false
-        }
-    }
+    constructor(apiClient: ApiClient) : this(
+        DynamicKubernetesApi(API_GROUP, API_VERSION, RESOURCE_PLURAL, apiClient),
+        createObjectMapper()
+    )
 
     /**
-     * Applies the given devfile content to the DevWorkspace custom resource by patching
-     * the `metadata.annotations["che.eclipse.org/local-devfile"]` field.
+     * The restart request prepared for confirmation.
      *
-     * Uses JSON Merge Patch (RFC 7386) which automatically creates the annotations map if missing.
+     * The workspace is read once, before the user is asked to confirm, so that the dialog can say
+     * whether the local devfile changes anything. [payload] is the exact annotation value that
+     * [publishRestart] sends once the user confirms.
+     *
+     * @param payload the annotation value carrying the devfile template
+     * @param hasChanges whether the template differs from the one the workspace is running
+     */
+    internal data class RestartPlan(
+        val payload: String,
+        val hasChanges: Boolean
+    )
+
+    /**
+     * Reads the workspace and computes the restart request that the user is asked to confirm.
+     *
+     * The template the devfile produces is compared with the one the workspace is running, so the
+     * caller can tell the user whether the restart applies changes or not. Nothing is patched
+     * here.
      *
      * This operation runs on the IO dispatcher.
      *
      * @param namespace The namespace of the DevWorkspace.
      * @param name The name of the DevWorkspace.
-     * @param devfileContent The content of the devfile to be applied as an annotation.
-     * @return `true` if the devfile was successfully applied, `false` otherwise.
+     * @param devfileContent The content of the devfile to apply.
+     * @return the payload to publish and whether the devfile changes the workspace
+     * @throws RestartException if the devfile is invalid or the restart cannot be prepared
      */
-    suspend fun applyDevfile(namespace: String, name: String, devfileContent: String): Boolean {
+    @Throws(RestartException::class)
+    suspend fun planRestart(
+        namespace: String,
+        name: String,
+        devfileContent: String
+    ): RestartPlan {
         return try {
+            val devfile = DevfileTemplate.parse(devfileContent)
             withContext(Dispatchers.IO) {
-                val annotationKey = "che.eclipse.org/local-devfile"
-                val body = mapOf(
-                    "metadata" to mapOf(
-                        "annotations" to mapOf(
-                            annotationKey to devfileContent
-                        )
-                    )
+                val workspace = readWorkspace(namespace, name)
+                val currentTemplate = findMap(workspace, "spec", "template")
+                val nextTemplate = devfile.toTemplate(currentTemplate)
+                RestartPlan(
+                    payload = buildTemplatePayload(nextTemplate),
+                    hasChanges = currentTemplate == null
+                            || !TemplateEquality.isEqual(nextTemplate, currentTemplate)
                 )
-
-                thisLogger().info("Adding annotation $annotationKey to $namespace/$name")
-                patch(namespace, name, body, V1Patch.PATCH_FORMAT_JSON_MERGE_PATCH)
             }
-            true
+        } catch (e: DevfileValidationException) {
+            thisLogger().warn("Devfile cannot be applied to $namespace/$name: ${e.message}")
+            throw e
+        } catch (e: CancellationException) {
+            throw e
         } catch (t: Throwable) {
-            thisLogger().error("Failed to apply local devfile to $namespace/$name", t)
-            false
+            thisLogger().error("Failed to plan the restart of $namespace/$name", t)
+            throw RestartException(
+                RestartException.Reason.RESTART_PREPARATION_FAILED,
+                "Could not prepare the restart of workspace $namespace/$name.",
+                t
+            )
         }
     }
 
     /**
-     * Removes the local devfile annotation from the DevWorkspace custom resource.
-     * This is used to roll back a devfile application when the restart annotation fails.
+     * Publishes the restart request and the template payload in one patch.
      *
-     * Uses JSON Patch (RFC 6902) for explicit removal.
+     * The workspace is read again so that a restart annotation left behind while the user was
+     * confirming is removed first: the Gateway only treats a new annotation as a request.
      *
      * This operation runs on the IO dispatcher.
      *
      * @param namespace The namespace of the DevWorkspace.
      * @param name The name of the DevWorkspace.
-     * @return `true` if the annotation was successfully removed, `false` otherwise.
+     * @param payload The annotation value computed by [planRestart].
+     * @throws RestartException if the devfile cannot be applied or the workspace cannot be patched
      */
-    suspend fun removeDevfile(namespace: String, name: String): Boolean {
-        return try {
+    @Throws(RestartException::class)
+    suspend fun publishRestart(
+        namespace: String,
+        name: String,
+        payload: String
+    ) {
+        try {
             withContext(Dispatchers.IO) {
-                val annotationKey = "che.eclipse.org/local-devfile"
-                val path = "/metadata/annotations/${escapeJsonPointer(annotationKey)}"
+                val workspace = readWorkspace(namespace, name)
+                removeStaleRestartAnnotation(namespace, name, workspace)
+                ensureAnnotationsFit(workspace, payload)
+                val patchBody = buildPatchBody(workspace, payload)
 
-                val ops = listOf(
-                    mapOf(
-                        "op" to "remove",
-                        "path" to path
-                    )
-                )
-
-                thisLogger().info("Removing annotation $annotationKey from $namespace/$name")
-                patch(namespace, name, ops, V1Patch.PATCH_FORMAT_JSON_PATCH)
+                thisLogger().info("Publishing devfile and restart annotation to $namespace/$name")
+                patch(namespace, name, patchBody, V1Patch.PATCH_FORMAT_JSON_PATCH)
             }
-            true
+        } catch (e: DevfileValidationException) {
+            thisLogger().warn("Devfile cannot be applied to $namespace/$name: ${e.message}")
+            throw e
+        } catch (e: CancellationException) {
+            throw e
         } catch (t: Throwable) {
-            thisLogger().error("Failed to remove local devfile annotation from $namespace/$name", t)
-            false
+            thisLogger().error("Failed to publish the restart of $namespace/$name", t)
+            throw RestartException(
+                RestartException.Reason.PUBLISH_FAILED,
+                "Could not apply the devfile to workspace $namespace/$name.",
+                t
+            )
         }
     }
 
     /**
-     * Performs a patch operation on a DevWorkspace custom resource using GenericKubernetesApi.
+     * Removes a restart annotation that predates this request.
+     *
+     * The Gateway only treats an annotation that appears as a restart request. A leftover
+     * annotation (for example from an attempt made while the Gateway was not watching) would
+     * otherwise swallow this request. Removing it first makes the annotation added by
+     * [buildPatchBody] an absent-to-present transition again.
+     */
+    private fun removeStaleRestartAnnotation(
+        namespace: String,
+        name: String,
+        workspace: Map<String, Any?>
+    ) {
+        val annotations = findMap(workspace, "metadata", "annotations") ?: return
+        if (!annotations.containsKey(RESTART_ANNOTATION_KEY)) {
+            return
+        }
+        thisLogger().info("Removing stale restart annotation from $namespace/$name")
+        patch(
+            namespace,
+            name,
+            listOf(
+                mapOf(
+                    "op" to "remove",
+                    "path" to "/metadata/annotations/${escapeJsonPointer(RESTART_ANNOTATION_KEY)}"
+                )
+            ),
+            V1Patch.PATCH_FORMAT_JSON_PATCH
+        )
+    }
+
+    /**
+     * Wraps the `spec.template` the devfile produces in a versioned envelope, so the Gateway can
+     * reject a payload it does not understand.
+     */
+    private fun buildTemplatePayload(template: Map<String, Any?>): String {
+        val payload = mapOf(
+            "version" to TEMPLATE_PAYLOAD_VERSION,
+            "template" to template
+        )
+        return mapper.writeValueAsString(payload)
+    }
+
+    /**
+     * Fails before touching the DevWorkspace when the payload would push its annotations over the
+     * Kubernetes limit (256 KiB in total). Checking here gives the user a clear message instead of
+     * an opaque 422 from the API server.
+     */
+    private fun ensureAnnotationsFit(workspace: Map<String, Any?>, payload: String) {
+        val annotations = findMap(workspace, "metadata", "annotations") ?: emptyMap()
+        val used = annotations.entries
+            .filter { it.key != PENDING_TEMPLATE_ANNOTATION_KEY }
+            .sumOf { byteSize(it.key) + byteSize(it.value?.toString() ?: "") }
+        val needed = used +
+            byteSize(PENDING_TEMPLATE_ANNOTATION_KEY) +
+            byteSize(payload) +
+            byteSize(RESTART_ANNOTATION_KEY) +
+            byteSize(RESTART_ANNOTATION_VALUE)
+        val limit = MAX_ANNOTATIONS_BYTES - ANNOTATIONS_HEADROOM_BYTES
+        if (needed > limit) {
+            throw DevfileValidationException(
+                "The devfile is too large to apply: it needs $needed bytes for the workspace " +
+                    "annotations, the limit is $limit bytes."
+            )
+        }
+    }
+
+    private fun byteSize(value: String): Int {
+        return value.toByteArray(StandardCharsets.UTF_8).size
+    }
+
+    /**
+     * Builds the JSON Patch that publishes the template payload and adds the restart annotation.
+     *
+     * They are set in the same request so that the Gateway never sees the restart request without
+     * the content. When the DevWorkspace has no annotations map yet, the map is added first.
+     */
+    private fun buildPatchBody(
+        workspace: Map<String, Any?>,
+        payload: String
+    ): List<Map<String, Any?>> {
+        val annotations = mapOf(
+            PENDING_TEMPLATE_ANNOTATION_KEY to payload,
+            RESTART_ANNOTATION_KEY to RESTART_ANNOTATION_VALUE
+        )
+        if (findMap(workspace, "metadata", "annotations") == null) {
+            return listOf(
+                mapOf(
+                    "op" to "add",
+                    "path" to "/metadata/annotations",
+                    "value" to annotations
+                )
+            )
+        }
+        return annotations.map { (key, value) ->
+            mapOf(
+                "op" to "add",
+                "path" to "/metadata/annotations/${escapeJsonPointer(key)}",
+                "value" to value
+            )
+        }
+    }
+
+    /**
+     * Reads the DevWorkspace that is patched.
+     *
+     * @throws ApiException if the Kubernetes API call fails.
+     */
+    @Throws(ApiException::class)
+    private fun readWorkspace(namespace: String, name: String): Map<String, Any?> {
+        val response = genericApi.get(namespace, name)
+        if (!response.isSuccess) {
+            val status = response.status
+            val message = status?.message ?: "Unknown error"
+            val code = status?.code ?: 0
+            throw ApiException("Could not read $namespace/$name: $message (code: $code)", code, null, null)
+        }
+        val workspace = response.`object`
+            ?: throw IllegalStateException("Empty response while reading $namespace/$name")
+        return mapper.readValue(workspace.raw.toString(), WORKSPACE_TYPE)
+    }
+
+    /**
+     * Returns the nested map at [path], or `null` when any segment is missing or not a map.
+     */
+    private fun findMap(root: Map<String, Any?>, vararg path: String): Map<String, Any?>? {
+        var current: Any? = root
+        for (segment in path) {
+            current = (current as? Map<*, *>)?.get(segment)
+        }
+        return (current as? Map<*, *>)?.entries?.associate { it.key.toString() to it.value }
+    }
+
+    /**
+     * Performs a patch operation on a DevWorkspace custom resource.
      *
      * @param namespace The namespace of the DevWorkspace.
      * @param name The name of the DevWorkspace.
