@@ -17,6 +17,11 @@ set -e
 
 ide_flavour="$1"
 ide_id="$2"
+
+# if set (typically, in an editor definition), the init script prepares the configuration files
+# for Toolbox to configure it for an air-gap mode
+toolbox_mode="$3"
+
 # mounted volume path
 ide_server_path="/idea-server"
 
@@ -61,6 +66,8 @@ case $ide_flavour in
     ;;
 esac
 
+# in an air-gapped environment, switch the IDE download URL from JetBrains site
+# to a custom one, provided via an environment variable
 editor_download_url_env_name="EDITOR_DOWNLOAD_URL_$(echo "$ide_id" | tr '/' '_' | tr '-' '_' | tr '[:lower:]' '[:upper:]')"
 editor_download_url_configured=$(eval "echo \$${editor_download_url_env_name}")
 if [ -n "$editor_download_url_configured" ]; then
@@ -71,6 +78,40 @@ else
 fi
 
 curl -fsSL "$ide_download_url" | tar xzf - --strip-components=1
+
+
+# in an air-gapped environment with Toolbox mode, switch the Toolbox Agent download URL from JetBrains site
+# to a custom one, provided via an environment variable
+toolbox_download_url=$EDITOR_DOWNLOAD_URL_CHE_INCUBATOR_JETBRAINS_SSHD_LATEST
+echo "Toolbox download URL: $toolbox_download_url"
+echo "Toolbox mode: $toolbox_mode"
+if [ -n "$toolbox_mode" ] && [ -n "$toolbox_download_url" ]; then
+  echo "Preparing container for Toolbox mode"
+
+
+# Agent distribution contains the Java runtime.
+# Both will be unpacked into ~/.cache/JetBrains/Toolbox-CLI-dist/ after establishing the SSH connection.
+
+# prepare env.sh with Toolbox Agent download URL and SHA256 checksum URL
+  cat > "$ide_server_path/toolbox/env.sh" <<EOF
+cli_url=$toolbox_download_url
+# https://download.jetbrains.com/toolbox/agent/tbcli-linux-x64-\${cli_version}.tar.gz
+
+# SHA file must be available on the same URL as Agent, with .sha256 suffix
+cli_sha256=\$(curl -sL \${cli_url}.sha256)
+
+# TODO: java_path=? check if this needs to be be overridden as well
+EOF
+
+
+mkdir -p "$ide_server_path/toolbox/preinstalled"
+# point Toolbox to look for the preinstalled IDEs in the shared volume
+echo "{\"installationDirectory\": \"$ide_server_path\"}" > "$ide_server_path/toolbox/preinstalled/idea.json"
+fi
+# TODO: ~/.local/share/JetBrains/Toolbox/environment.json should allow to specify path to a folder containing any IDE
+
+
+cp /copy-tbx-config.sh "$ide_server_path"
 
 cp -r /status-app/ "$ide_server_path"
 cp /entrypoint-volume.sh "$ide_server_path"
