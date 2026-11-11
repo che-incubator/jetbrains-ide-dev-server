@@ -105,7 +105,7 @@ updatePackageVersionAndCommitChanges() {
 updateXBranch() {
   checkoutToXBranch
 
-  COMMIT_MSG="ci: bump ${VERSION} in ${X_BRANCH}"
+  COMMIT_MSG="chore(release): bump ${VERSION} in ${X_BRANCH}"
 
   updatePackageVersionAndCommitChanges \
     "${VERSION}" \
@@ -118,7 +118,7 @@ updateXBranch() {
 updateMainBrain() {
   checkoutToNextBranch
 
-  COMMIT_MSG="ci: bump ${NEXT_VERSION} in main"
+  COMMIT_MSG="chore(release): bump ${NEXT_VERSION} in main"
 
   updatePackageVersionAndCommitChanges \
     "${NEXT_VERSION}" \
