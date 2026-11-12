@@ -1,0 +1,55 @@
+# Copyright (c) 2026 Red Hat, Inc.
+# This program and the accompanying materials are made
+# available under the terms of the Eclipse Public License 2.0
+# which is available at https://www.eclipse.org/legal/epl-2.0/
+#
+# SPDX-License-Identifier: EPL-2.0
+#
+# Contributors:
+#   Red Hat, Inc. - initial API and implementation
+
+# Image for building test RPMs with build/scripts/examples/build-ide-rpm.sh:
+# given an IDE server tarball URL (or a local path), produces an RPM whose payload
+# matches what entrypoint-init-container.sh expects for its IDE_RPM_PACKAGE_PATH
+# option (the IDE tree nested under a single top-level "idea-server" directory).
+#
+# Build (from the repository root, same build context as the main Dockerfile):
+#   podman build . -f build/scripts/examples/dockerfiles/Dockerfile.rpm-builder -t che-ide-rpm-builder:next
+#
+# Run (mount a writable directory for the output RPM; on SELinux hosts add ":Z"
+# to the volume, and with rootless podman use --userns=keep-id:uid=10001,gid=0
+# so the output file is owned by the invoking user):
+#   podman run --rm --userns=keep-id:uid=10001,gid=0 \
+#     -v "$PWD:/output:Z" che-ide-rpm-builder:next \
+#     https://download.jetbrains.com/idea/idea-2026.1.tar.gz /output/ide-server.rpm
+#
+# A local tarball works too — mount it read-only and pass its in-container path:
+#   podman run --rm --userns=keep-id:uid=10001,gid=0 \
+#     -v "$PWD:/input:ro,Z" -v "$PWD:/output:Z" che-ide-rpm-builder:next \
+#     /input/idea-2026.1.tar.gz /output/ide-server.rpm
+#
+# The resulting RPM can then be consumed by the dev server image via:
+#   IDE_RPM_PACKAGE_PATH=/output/ide-server.rpm
+
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.8
+
+USER 0
+
+# Dependencies of build-ide-rpm.sh:
+# - rpm-build: rpmbuild itself
+# - tar/gzip/xz: listing and unpacking the source tarball (%setup) and the
+#   w1.gzdio binary payload
+# - findutils: locating the built RPM
+# Note: no need to install curl — ubi-minimal ships curl-minimal, which provides
+# the curl binary used to fetch the IDE tarball, and it conflicts with full curl.
+RUN microdnf install -y rpm-build tar gzip xz findutils && \
+    microdnf clean all
+
+COPY --chmod=755 /build/scripts/examples/build-ide-rpm.sh /usr/local/bin/build-ide-rpm.sh
+
+# Match the main image's conventions: unprivileged runtime user with group 0.
+# The directory receiving the output RPM must be writable by uid 10001 (or
+# group 0), e.g. "podman run --userns=keep-id -v $PWD:/output ..." on a host.
+USER 10001
+
+ENTRYPOINT ["/usr/local/bin/build-ide-rpm.sh"]
