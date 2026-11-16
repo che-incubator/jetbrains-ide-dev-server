@@ -41,7 +41,8 @@ cd "$ide_server_path" || exit
 # --strip-components=1 flattens out of the official JetBrains tarballs. That
 # directory is stripped off during extraction below, so
 # entrypoint-init-container.sh ends up with the exact same flattened layout
-# regardless of which installation source was used.
+# regardless of which installation source was used. rpm2archive prefixes paths
+# with "./", so for RPMs the leading "./" is stripped as well.
 #
 # To inspect an RPM's structure without extracting it, run:
 #   rpm -qlp <path-to.rpm> | tree --fromfile -L 2 .
@@ -108,19 +109,29 @@ else
   ide_source="$ide_download_url"
 fi
 
-# Bypass download + extraction if already done (for same source)
+# Pre-condition: reuse a previous install only if it produced the expected layout.
 prev_ide_download=$([ -e .ide-download-complete ] && cat .ide-download-complete || echo "")
-if [ "${prev_ide_download}" != "${ide_source}" ]; then
+if [ "${prev_ide_download}" = "${ide_source}" ] && [ -f "$ide_server_path/product-info.json" ]; then
+  echo "IDE binaries already installed and source unchanged. Skipping."
+else
   if [ "$ide_source" = "$ide_rpm_package_path" ] && [ -n "$ide_rpm_package_path" ]; then
     echo "Installing IDE binaries from RPM package: $ide_source"
-    rpm2archive --nocompression - < "$ide_source" | tar xf - --strip-components=1
+    # rpm2archive emits "./<top-dir>/..."; strip "./" and <top-dir>.
+    # Skip rpmbuild's /usr/lib/.build-id entries.
+    rpm2archive --nocompression - < "$ide_source" \
+      | tar xf - --strip-components=2 --exclude='./usr*'
   else
     echo "Downloading IDE binaries..."
     curl -fsSL "$ide_source" | tar xzf - --strip-components=1
   fi
+
+  # Post-condition: fail fast instead of caching a broken extraction.
+  if [ ! -f "$ide_server_path/product-info.json" ]; then
+    echo "ERROR: IDE installation is missing $ide_server_path/product-info.json." >&2
+    exit 1
+  fi
+
   echo -n "${ide_source}" > .ide-download-complete
-else
-  echo "IDE binaries already installed and source unchanged. Skipping."
 fi
 
 cp -r /status-app/ "$ide_server_path"
