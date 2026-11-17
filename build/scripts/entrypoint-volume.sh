@@ -347,17 +347,47 @@ EOF_TRUSTED
 
 cleanup_locks_and_sockets() {
   target="$1"
-  if [ -d "$target" ]; then
-    find "$target" \( -name ".lock" -o -name ".pid" -o -name ".port" \) -delete 2>/dev/null
-    find "$target" -type s -delete 2>/dev/null
+  if [ ! -d "$target" ]; then
+    return 0
   fi
+
+  # DirectoryLock (IDEA 2024+): .lock is the PID file under config/;
+  # .port is the Unix-domain socket under system/ (.cache/). An unclean
+  # pod kill leaves .port behind → BindException on the next start.
+  # Prefer rm -f over find -delete so socket unlinks are explicit.
+  find "$target" \( \
+      -name ".lock" -o -name ".pid" -o -name ".port" -o \
+      -name ".token" -o -name ".port.lock" \
+    \) -exec rm -f {} + 2>/dev/null \
+    || echo "[WARN] Could not remove lock files under $target"
+  find "$target" -type s -exec rm -f {} + 2>/dev/null \
+    || echo "[WARN] Could not remove sockets under $target"
+
+  # Explicit product-dir .port (DirectoryLock bind path).
+  for port in "$target"/*/.port; do
+    [ -e "$port" ] || continue
+    rm -f "$port" || echo "[WARN] Could not remove $port"
+  done
 }
 
 cleanup_stale_locks() {
   echo "[INFO] Cleaning up any stale JetBrains IDE locks from previous pod runs..."
 
-  cleanup_locks_and_sockets "$ACTIVE_HOME/.config/JetBrains"
-  cleanup_locks_and_sockets "$ACTIVE_HOME/.cache/JetBrains"
+  # Honor XDG_* when the workspace overrides them; DirectoryLock follows
+  # those for config/system paths on Linux.
+  config_root="${XDG_CONFIG_HOME:-$ACTIVE_HOME/.config}/JetBrains"
+  cache_root="${XDG_CACHE_HOME:-$ACTIVE_HOME/.cache}/JetBrains"
+
+  cleanup_locks_and_sockets "$config_root"
+  # Also scrub default HOME locations when XDG_* points elsewhere.
+  if [ "$config_root" != "$ACTIVE_HOME/.config/JetBrains" ]; then
+    cleanup_locks_and_sockets "$ACTIVE_HOME/.config/JetBrains"
+  fi
+  cleanup_locks_and_sockets "$cache_root"
+  # Also scrub default HOME locations when XDG_* points elsewhere.
+  if [ "$cache_root" != "$ACTIVE_HOME/.cache/JetBrains" ]; then
+    cleanup_locks_and_sockets "$ACTIVE_HOME/.cache/JetBrains"
+  fi
 
   # Clean nested project .idea directories.
   if [ -d "$PROJECTS_ROOT" ]; then
@@ -368,6 +398,59 @@ cleanup_stale_locks() {
 
   # /idea-server/
   cleanup_locks_and_sockets "$ide_server_path"
+}
+
+# Wraps one launcher path so DirectoryLock artifacts are cleared before each
+# start (including exit-88 relaunches inside remote-dev-server.sh).
+wrap_launcher_with_lock_cleanup() {
+  path="$1"
+  orig="${path}.real"
+  marker="che-directory-lock-cleanup"
+
+  if [ ! -e "$path" ]; then
+    return 0
+  fi
+
+  # Already our wrapper.
+  if [ -e "$orig" ] && grep -q "$marker" "$path" 2>/dev/null; then
+    return 0
+  fi
+
+  # Fresh binary replaced a previous wrapper — re-wrap.
+  if [ -e "$orig" ] && ! grep -q "$marker" "$path" 2>/dev/null; then
+    mv -f "$path" "$orig"
+  elif [ ! -e "$orig" ]; then
+    mv "$path" "$orig"
+  else
+    return 0
+  fi
+
+  real_name="$(basename "$orig")"
+  cat > "$path" <<EOF
+#!/bin/sh
+# $marker — runs before every IDE start, including exit-88 relaunches
+config_root="\${XDG_CONFIG_HOME:-\$HOME/.config}/JetBrains"
+cache_root="\${XDG_CACHE_HOME:-\$HOME/.cache}/JetBrains"
+for root in "\$config_root" "\$cache_root"; do
+  [ -d "\$root" ] || continue
+  for dir in "\$root"/*/; do
+    [ -d "\$dir" ] || continue
+    rm -f "\$dir/.lock" "\$dir/.port" "\$dir/.pid" "\$dir/.token" "\$dir/.port.lock" 2>/dev/null \\
+      || echo "[WARN] Could not remove DirectoryLock artifacts under \$dir"
+  done
+done
+exec "\$(dirname "\$0")/$real_name" "\$@"
+EOF
+  chmod +x "$path"
+  echo "[INFO] Installed DirectoryLock cleanup wrapper at $path"
+}
+
+# Installs wrappers for both launcher variants remote-dev-server.sh may call.
+install_lock_cleanup_launcher_wrapper() {
+  # Native launcher (glibc/Darwin): bin/remote-dev-server
+  wrap_launcher_with_lock_cleanup "$ide_server_path/bin/remote-dev-server"
+  # Script launcher (musl/others): plugins/remote-dev-server/bin/launcher.sh
+  wrap_launcher_with_lock_cleanup "$ide_server_path/plugins/remote-dev-server/bin/launcher.sh"
 }
 
 start_ide_with_writable_home() {
@@ -442,6 +525,10 @@ start_ide_server() {
   PROJECT_PATH="$PROJECTS_ROOT"
   configure_projects "$PROJECTS_ROOT"
   echo "[DEBUG] After configure_projects: PROJECT_PATH=$PROJECT_PATH"
+
+  # Clears .port/.lock on every launch, including IDEA_RESTART_VIA_EXIT_CODE=88
+  # relaunches inside remote-dev-server.sh (no sed of that script).
+  install_lock_cleanup_launcher_wrapper
 
   # remote-dev-server.sh writes to several sub-folders of HOME (.config, .cache, etc.)
   # When registry.access.redhat.com/ubi9 is used for running a user container, HOME=/ which is read-only.
