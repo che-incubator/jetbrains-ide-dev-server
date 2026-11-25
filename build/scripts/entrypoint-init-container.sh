@@ -20,6 +20,12 @@ set -e
 # pre-staged environments), set IDE_RPM_PACKAGE_PATH to the path of an existing RPM file; when
 # set and the file exists, it takes priority over downloading and no network access is required.
 # See the "RPM payloads must..." comment below for the RPM's required internal structure.
+#
+# To download the IDE from a mirror that requires authentication, mount a netrc file
+# ("machine <host> login <user> password <pass>", one record per mirror host) and set
+# IDE_DOWNLOAD_NETRC_FILE to its path. Hosts with no netrc record are downloaded
+# anonymously. If the mirror's TLS certificate is issued by a private CA, set
+# IDE_DOWNLOAD_CACERT_FILE to the path of the CA's PEM file.
 
 ide_flavour="$1"
 ide_id="$2"
@@ -122,7 +128,28 @@ else
       | tar xf - --strip-components=2 --exclude='./usr*'
   else
     echo "Downloading IDE binaries..."
-    curl -fsSL "$ide_source" | tar xzf - --strip-components=1
+    # Credentials and CA trust for the download mirror, both optional and mounted
+    # by the admin. netrc keeps credentials out of the process table and supports
+    # per-host credentials when different IDEs are mirrored on different hosts.
+    curl_auth_args=""
+    if [ -n "${IDE_DOWNLOAD_NETRC_FILE:-}" ]; then
+      if [ -f "$IDE_DOWNLOAD_NETRC_FILE" ]; then
+        echo "Using download credentials from netrc file: $IDE_DOWNLOAD_NETRC_FILE"
+        curl_auth_args="$curl_auth_args --netrc-file $IDE_DOWNLOAD_NETRC_FILE"
+      else
+        echo "IDE_DOWNLOAD_NETRC_FILE is set to '$IDE_DOWNLOAD_NETRC_FILE' but the file does not exist; downloading anonymously."
+      fi
+    fi
+    if [ -n "${IDE_DOWNLOAD_CACERT_FILE:-}" ]; then
+      if [ -f "$IDE_DOWNLOAD_CACERT_FILE" ]; then
+        echo "Using CA certificate from: $IDE_DOWNLOAD_CACERT_FILE"
+        curl_auth_args="$curl_auth_args --cacert $IDE_DOWNLOAD_CACERT_FILE"
+      else
+        echo "IDE_DOWNLOAD_CACERT_FILE is set to '$IDE_DOWNLOAD_CACERT_FILE' but the file does not exist; using default CA trust."
+      fi
+    fi
+    # shellcheck disable=SC2086  # mount paths are admin-controlled and expected to contain no spaces
+    curl -fsSL $curl_auth_args "$ide_source" | tar xzf - --strip-components=1
   fi
 
   # Post-condition: fail fast instead of caching a broken extraction.
