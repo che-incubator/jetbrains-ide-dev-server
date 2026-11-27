@@ -68,28 +68,28 @@ else
   ide_download_url=""
   case $ide_flavour in
     idea)
-      ide_download_url="https://download.jetbrains.com/idea/idea-2026.1.tar.gz"
+      ide_download_url="https://download.jetbrains.com/idea/idea-2026.1.5.2.tar.gz"
       ;;
     webstorm)
-      ide_download_url="https://download.jetbrains.com/webstorm/WebStorm-2026.1.tar.gz"
+      ide_download_url="https://download.jetbrains.com/webstorm/WebStorm-2026.1.5.2.tar.gz"
       ;;
     pycharm)
-      ide_download_url="https://download.jetbrains.com/python/pycharm-2026.1.tar.gz"
+      ide_download_url="https://download.jetbrains.com/python/pycharm-2026.1.5.2.tar.gz"
       ;;
     goland)
-      ide_download_url="https://download.jetbrains.com/go/goland-2026.1.tar.gz"
+      ide_download_url="https://download.jetbrains.com/go/goland-2026.1.5.2.tar.gz"
       ;;
     clion)
-      ide_download_url="https://download.jetbrains.com/cpp/CLion-2026.1.tar.gz"
+      ide_download_url="https://download.jetbrains.com/cpp/CLion-2026.1.5.3.tar.gz"
       ;;
     phpstorm)
-      ide_download_url="https://download.jetbrains.com/webide/PhpStorm-2026.1.tar.gz"
+      ide_download_url="https://download.jetbrains.com/webide/PhpStorm-2026.1.5.2.tar.gz"
       ;;
     rubymine)
-      ide_download_url="https://download.jetbrains.com/ruby/RubyMine-2026.1.tar.gz"
+      ide_download_url="https://download.jetbrains.com/ruby/RubyMine-2026.1.5.2.tar.gz"
       ;;
     rider)
-      ide_download_url="https://download.jetbrains.com/rider/JetBrains.Rider-2026.1.tar.gz"
+      ide_download_url="https://download.jetbrains.com/rider/JetBrains.Rider-2026.1.5.4.tar.gz"
       ;;
     *)
       echo -n "Unknown IDE is specified: $ide_flavour"
